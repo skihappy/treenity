@@ -8,4 +8,7 @@ import routes from './routes';
 import './feathers';
 import './tree';
 
+import config from '../config-common';
+config.isClient = true;
+
 ReactDOM.render(React.createElement(routes), document.getElementById('app'));

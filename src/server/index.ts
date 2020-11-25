@@ -10,6 +10,7 @@ import configuration from '@feathersjs/configuration';
 import '../common/index';
 
 import config from '../config-common';
+config.isServer = true;
 
 import { HelloService } from '../mods/server';
 import createClientDb from '../mods/mongo/mongod';
@@ -43,6 +44,12 @@ async function main() {
       Model: db.collection('changes'),
     })
   );
+  app.use(
+    'edges',
+    mongoService({
+      Model: db.collection('edges'),
+    })
+  );
   app.use('tree', new TreeService());
   app.service('tree').hooks({
     error: {
@@ -69,9 +76,9 @@ async function main() {
         app.channel('anonymous').join(connection);
       });
 
-      // app.service('tree').publish('patched', data => {
-      // return app.channel('tree');
-      // });
+      app.on('disconnect', (connection) => {
+        app.channel('anonymous').leave(connection);
+      });
     }
   );
 }

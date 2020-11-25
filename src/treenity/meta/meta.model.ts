@@ -1,5 +1,5 @@
 import { isIdentifierType, types } from 'mobx-state-tree';
-// import { mapValues } from 'lodash';
+import { mapValues } from 'lodash';
 import { addType } from '../registeredTypes';
 
 export interface Node {}
@@ -29,10 +29,20 @@ export const Meta = types
   }));
 
 export function meta(name: string, definition: { [field: string]: any }) {
+  const actions = {};
   const fields = {
-    ...definition,
     _t: name,
   };
+  for (const name in definition) {
+    const val = definition[name];
+    if (typeof val === 'function') {
+      actions[name] = val;
+    } else {
+      fields[name] = val;
+    }
+  }
 
-  return addType(types.compose(name, Meta, types.model(fields)));
+  const makeActions = (self) => mapValues(actions, (func) => func.bind(self));
+
+  return addType(types.compose(name, Meta, types.model(fields).actions(makeActions)));
 }

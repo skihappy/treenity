@@ -1,7 +1,8 @@
 import { Meta } from '../meta/meta.model';
 import { addType, registeredTypes, t } from '../';
-import { getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
-import { untrack } from '../../mst/get-actions';
+import { getEnv, getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
+import { Edge, Link } from '../edge';
+import config from '../../config-common';
 
 export const Timestamp = addType(
   t
@@ -46,22 +47,23 @@ export const Node = addType(
     // addMeta: untrack((meta) => {
     //   self._addMeta(getSnapshot(meta));
     // }),
-    $addMeta(meta) {
+    addMeta(meta) {
       const snapshot = isStateTreeNode(meta) ? getSnapshot(meta) : meta;
-      return self.addMetaSnapshot(snapshot);
+      return self.$addMetaSnapshot(snapshot);
     },
-    addMetaSnapshot(metaSnapshot) {
+    $addMetaSnapshot(metaSnapshot) {
       self._m.push(metaSnapshot);
     },
 
-    $removeMeta(idOrMeta: string | IAnyType) {
+    removeMeta(idOrMeta: string | IAnyType) {
+      // overloading
       if (isStateTreeNode(idOrMeta)) {
         // @ts-ignore
         idOrMeta = (idOrMeta as Instance<typeof Meta>)._id;
       }
-      return self.removeMetaId(idOrMeta);
+      return self.$removeMetaId(idOrMeta);
     },
-    removeMetaId(_id: string) {
+    $removeMetaId(_id: string) {
       const idx = self._m.findIndex((m) => m._id === _id);
       if (idx >= 0) {
         self._m.splice(idx, 1);
@@ -69,6 +71,16 @@ export const Node = addType(
       }
 
       return false;
+    },
+
+    $createEdge(to: Instance<typeof Link>) {
+      if (config.isServer) {
+        const edge = Edge.create({
+          from: Link.create({ nodeId: self._id }),
+          to,
+        });
+        // Edges.create(edge);
+      }
     },
   }))
 );

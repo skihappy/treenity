@@ -1,4 +1,6 @@
 import { Id, NullableId, Params, Service, ServiceMethods } from '@feathersjs/feathers';
+import { each } from 'lodash';
+
 import { makeUpdateFromActions, makeUpdateFromPatch } from '../model/make-patch-update';
 import { Node } from './node';
 
@@ -20,16 +22,16 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     this.changes = app.service('changes');
     const service = app.service(path);
 
-    // service.publish('created', (data) => {
-    //   return app.channel('anonymous');
-    // });
+    service.publish('created', (data) => {
+      return [app.channel(data._p)];
+    });
     service.publish('patched', (data) => {
       // publish this changes to object channel and parent object channel
-      return [app.channel(data.id), app.channel(data.p)];
+      return [app.channel(data.id), app.channel(data._p)];
     });
-    // service.publish('removed', (id) => {
-    //   return app.channel(id);
-    // });
+    service.publish('removed', (id) => {
+      return app.channel(id);
+    });
 
     app.on('disconnect', (connection) => {
       const cookie = connection.headers.cookie;
@@ -37,8 +39,8 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     });
   }
 
-  subscribe(connection, objects) {
-    const subId = randomId();
+  subscribe(connection, objects, subId) {
+    subId = subId || randomId();
     const cookie = connection.headers.cookie;
 
     const info = subscriptions[cookie] || (subscriptions[cookie] = { ids: {}, subs: {} });
@@ -57,6 +59,17 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     });
 
     return subId;
+  }
+
+  removeSub(connection, id: string): void {
+    const cookie = connection.headers.cookie;
+
+    const { ids, subs } = subscriptions[cookie] ?? {};
+    if (!ids) return;
+
+    each(subs, (sub) => delete sub[id]);
+    delete ids[id];
+    // this.app.channel(id).leave(connection);
   }
 
   unsubscribe(connection, subId) {
@@ -98,7 +111,8 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
   }
   async create(data: any, params: Params) {
     const obj = await this.collection.create(data, params);
-    await this.changes.create({ _id: obj._id, _: [] }, params);
+    await this.changes.create({ _id: obj._id, _: [{ op: 'add', path: '/', value: data }] }, params);
+    const subId = this.subscribe(params.connection, [obj], 'create');
     return obj;
   }
   // async update(id: NullableId, data: any, params: Params) {
@@ -126,7 +140,9 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     // this.app.channel(id).send(patch);
   }
   async remove(id: NullableId, params: Params) {
-    await this.collection.remove(id);
+    if ((await this.collection.remove(id).catch(() => false)) !== false) {
+      this.removeSub(params.connection, id);
+    }
     return id;
   }
 

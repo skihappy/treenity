@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link as A } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { clone, getSnapshot, Instance } from 'mobx-state-tree';
 
@@ -11,6 +11,7 @@ import { getActions } from '../../mst/get-actions';
 import { addType } from '../../treenity/registeredTypes';
 import { meta } from '../../treenity/meta/meta.model';
 import { TestMeta } from '../../mods/test/Test.meta';
+import { Link } from '../../treenity/edge';
 
 function createSomething() {
   const node = Node.create({
@@ -33,7 +34,7 @@ function remove(node: Instance<typeof Node>) {
   return client.service('tree').remove(node._id);
 }
 function removeMeta(node: Node, meta: any) {
-  patch(node, (node) => node.$removeMeta(meta._id));
+  patch(node, (node) => node.removeMeta(meta._id));
 }
 
 export default observer(function Tree({}) {
@@ -41,8 +42,13 @@ export default observer(function Tree({}) {
 
   const patchSomething = (n) =>
     patch(n, (n) => {
-      n.$addMeta(TestMeta.create({ _id: randomId(), name: 'name' + randomId() }));
+      n.addMeta(TestMeta.create({ _id: randomId(), name: 'name' + randomId() }));
       // n.set({ name: 'patched' + randomId() });
+    });
+
+  const addEdge = (node, toNode) =>
+    patch(node, (node) => {
+      node.$createEdge(Link.create({ nodeId: toNode._id }));
     });
 
   if (!nodes) {
@@ -63,12 +69,15 @@ export default observer(function Tree({}) {
               remove
             </button>
           </div>
-          <div>
+          <div style={{ marginBottom: 16 }}>
             {n._m.map((m) => (
               <div key={m._id}>
                 '{m._t}' '{m._id}' '{m.name}'{' '}
                 <button style={{ marginLeft: 4 }} onClick={() => removeMeta(n, m)}>
                   -
+                </button>
+                <button style={{ marginLeft: 4 }} onClick={() => addEdge(n, nodes[0])}>
+                  + edge
                 </button>
               </div>
             ))}
@@ -79,7 +88,7 @@ export default observer(function Tree({}) {
         <button onClick={createSomething}>Create</button>
       </div>
       <div style={{ marginTop: 48 }}>
-        <Link to="/craft">Craft</Link>
+        <A to="/craft">Craft</A>
       </div>
     </div>
   );
