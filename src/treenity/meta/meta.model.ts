@@ -8,15 +8,12 @@ export const WithId = types.model('withid', {
   _id: types.string,
 });
 
-export const Link = types.model('link', {});
-
 export const Meta = types
   .compose(
     'meta',
     WithId,
     types.model({
       _tg: types.array(types.string),
-      _l: types.array(Link),
     })
   )
   .actions((self) => ({
