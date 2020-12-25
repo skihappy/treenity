@@ -1,9 +1,8 @@
 import { IAnyModelType, IAnyType,IModelType,SnapshotOrInstance, Instance,types as t} from 'mobx-state-tree'
-import {randomId} from '../../common/random-id'
-import {string} from "mobx-state-tree/dist/types/primitives";
+import {randomId} from './random-id'
 
 
-
+/*
 //Pin values will be serialized for archiving. Keep it serializable. Use snapshot preprocessors on models if needed
 type TValueTypes={[typeName:string]:IAnyType}
 
@@ -63,17 +62,9 @@ interface ICompositeBlock extends ICommonBlock {
     blocks:[IBaseBlock | ICompositeBlock]
 }
 
-const MWithId = t.model('withId', {
-    _id: t.identifier,
-}).actions((self) => ({
-    afterCreate: () => {
-        self._id = randomId()
-    }
-}))
 
-/*
-This defines the syntax of logic engine. Its just a start. Anything can be added on later.
- */
+
+
 interface ICommonBlockSpec {
     inputPins?:[IPinSpec],
     outputPins:[IPinSpec]
@@ -93,6 +84,15 @@ type TBlockSpec=IBaseBlockSpec | ICompositeBlockSpec
 interface ILogicEngine {
     block:(blockSpec:TBlockSpec)=>IAnyModelType
 }
+*/
+const MWithId = t.model('withId', {
+    _id: t.identifier,
+}).actions((self) => ({
+    afterCreate: () => {
+        self._id = randomId()
+    }
+}))
+
 
 const logicEngine=(logicEngineSpec:ILogicEngineSpec):ILogicEngine=>{
     const {valueTypes:getValueTypes}=logicEngineSpec
