@@ -14,10 +14,11 @@ models if needed. The only problem is theres no dispatch func for similar shaped
 some of those, you might get strange results in historic records. If so, consider using a single dict of an arg.
  */
 
-import { typecheck,IAnyModelType, IAnyType,IModelType,SnapshotOrInstance, Instance,types as t} from 'mobx-state-tree'
-import {MWithId,tRainbowArray} from './utils'
+import { IAnyModelType, IType,IAnyType,IModelType,SnapshotOrInstance, Instance,types as t} from 'mobx-state-tree'
+import {MWithId,tRainbowArray,tUnserializable,assert} from './utils'
 import {NodeVM, VMScript} from 'vm2'
-import {tUnserializable} from "./utils";
+
+console.log('script')
 
 const vm = new NodeVM({
     console: 'inherit',
@@ -32,7 +33,7 @@ const vm = new NodeVM({
 })
 
 type TUnnamedArgDef=IAnyType
-type TNamedArgDef= [name:string,type:TUnnamedArgDef ]
+type TNamedArgDef= [string,TUnnamedArgDef ]
 type TArgDef=TUnnamedArgDef | TNamedArgDef
 function isNamed(argDef: TArgDef): argDef is TNamedArgDef {
     return Array.isArray(argDef)
@@ -72,11 +73,11 @@ const getMScript=(defName:string,argDefs?:TArgDef[],resultType?:IAnyType):IAnyMo
                 const [argDefs,resultType]=self.definition
                 if(argTypes){
                     // @ts-ignore
-                    assert(argDefs.length>=args.length)
-                    args.forEach((arg,index)=>typecheck(argDefs[index],arg))
+                    assert(argDefs.length<args.length,`script ${self.name}: too many args, ${args.length} vs ${argDefs.length}`)
+                    //args.forEach((arg,index:number)=>typecheck<typeof argTypes[index]>(argTypes[index],arg))
                 }
                 const result= func(...args)
-                if(resultType)typecheck(resultType,result)
+                if(resultType)console.log(resultType.validate(result,[{ path: "", type: resultType }]))
                 if(self.isRecorded)self.history.push(MScriptHistoryRecord.create({args,result}))
                 return result
             },

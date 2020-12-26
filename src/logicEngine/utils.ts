@@ -1,5 +1,6 @@
 import { IAnyModelType, IAnyType,IModelType,SnapshotOrInstance, Instance,types as t} from 'mobx-state-tree'
-import _ from 'lodash'
+import {boolean} from "mobx-state-tree/dist/types/primitives";
+const _=require('lodash')
 
 export function randomId(length = 12): string {
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12,12 +13,8 @@ export function randomId(length = 12): string {
 }
 
 export const MWithId = t.model('withId', {
-    _id: t.identifier,
-}).actions((self) => ({
-    afterCreate: () => {
-        self._id = randomId()
-    }
-}))
+    _id: t.optional(t.identifier,randomId()),
+})
 
 export const tUnserializable=t.custom<string,any>({
     name: "unserializable",
@@ -35,4 +32,10 @@ export const tUnserializable=t.custom<string,any>({
     }
 })
 
-export const tRainbowArray=(...types:IAnyType[])=>t.array(t.union(..._.unique(types)))
+export const tRainbowArray=(...types:IAnyType[])=>t.array(t.union(..._.uniq(types)))
+
+export const assert=(guard:boolean | (()=>boolean), msg:string)=>{
+    const e=new Error(msg)
+    const failed=(typeof guard === 'boolean')?guard:guard()
+    if(failed)throw e
+}
