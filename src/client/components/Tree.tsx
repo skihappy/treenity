@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link as A } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
-import { clone, getSnapshot, Instance } from 'mobx-state-tree';
+import { clone, getSnapshot, Instance, TypeOfValue } from 'mobx-state-tree';
 
 import client from '../feathers';
 import { Node } from '../../treenity/tree/node';
@@ -18,13 +18,12 @@ function createSomething() {
     _p: 'root',
     _id: 'id' + randomId(),
     name: 'name' + randomId(),
-    data: { some: 'test' },
   });
 
   client.service('tree').create(node);
 }
 
-function patch(node: Node, updater) {
+function patch(node: Instance<typeof Node>, updater) {
   const actions = getActions(clone(node), updater);
 
   return client.service('tree').patch(node._id, actions);
@@ -33,12 +32,15 @@ function patch(node: Node, updater) {
 function remove(node: Instance<typeof Node>) {
   return client.service('tree').remove(node._id);
 }
+
 function removeMeta(node: Node, meta: any) {
   patch(node, (node) => node.removeMeta(meta._id));
 }
 
+const useTree = (query) => useServiceFind('tree', query);
+
 export default observer(function Tree({}) {
-  const nodes = useServiceFind('tree', {});
+  const nodes = useTree({});
 
   const patchSomething = (n) =>
     patch(n, (n) => {

@@ -1,8 +1,15 @@
-import { isIdentifierType, types } from 'mobx-state-tree';
+import { IAnyModelType, IAnyType, IModelType, isIdentifierType, types } from 'mobx-state-tree';
 import { mapValues } from 'lodash';
 import { addType } from '../registeredTypes';
+import {
+  ModelActions,
+  ModelPropertiesDeclaration,
+  ModelPropertiesDeclarationToProperties,
+} from 'mobx-state-tree/dist/types/complex-types/model';
+import { Instance } from 'mobx-state-tree/dist/internal';
 
-export interface Node {}
+export interface Node {
+}
 
 export const WithId = types.model('withid', {
   _id: types.string,
@@ -28,21 +35,31 @@ export const Meta = types
     },
   }));
 
-export function meta(name: string, definition: { [field: string]: any }) {
-  const actions = {};
-  const fields = {
-    _t: name,
-  };
-  for (const name in definition) {
-    const val = definition[name];
-    if (typeof val === 'function') {
-      actions[name] = val;
-    } else {
-      fields[name] = val;
-    }
-  }
+// export function meta2<T extends IModelType<any, any>, T1 extends IModelType<any, any>(fn: (T) => T1) {
+//   const comp =
+//   const type = fn()
+// }
 
-  const makeActions = (self) => mapValues(actions, (func) => func.bind(self));
+export function meta<P extends ModelPropertiesDeclaration, A extends ModelActions>(
+  name: string,
+  props: P,
+  actions: (self: Instance<IModelType<ModelPropertiesDeclarationToProperties<P>, any>>) => A,
+): IModelType<ModelPropertiesDeclarationToProperties<P>, A> {
+  const type = types.compose(name, Meta, types.model(props).actions(actions), types.model({ _t: name }));
 
-  return addType(types.compose(name, Meta, types.model(fields).actions(makeActions)));
+  return addType(type);
 }
+
+meta(
+  types
+    .model('some.meta', {
+      some: types.string,
+    })
+    .actions((self) => ({
+      $doFavor() {
+      },
+
+      $runOnServer() {
+      },
+    })),
+);

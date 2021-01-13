@@ -43,25 +43,9 @@ const NodeModel = t.compose(
 );
 
 export const Node = addType(
-  NodeModel.actions((self: Instance<typeof NodeModel>) => ({
-    // addMeta: untrack((meta) => {
-    //   self._addMeta(getSnapshot(meta));
-    // }),
-    addMeta(meta) {
-      const snapshot = isStateTreeNode(meta) ? getSnapshot(meta) : meta;
-      return self.$addMetaSnapshot(snapshot);
-    },
+  NodeModel.actions((self) => ({
     $addMetaSnapshot(metaSnapshot) {
       self._m.push(metaSnapshot);
-    },
-
-    removeMeta(idOrMeta: string | IAnyType) {
-      // overloading
-      if (isStateTreeNode(idOrMeta)) {
-        // @ts-ignore
-        idOrMeta = (idOrMeta as Instance<typeof Meta>)._id;
-      }
-      return self.$removeMetaId(idOrMeta);
     },
     $removeMetaId(_id: string) {
       const idx = self._m.findIndex((m) => m._id === _id);
@@ -81,6 +65,23 @@ export const Node = addType(
         });
         // Edges.create(edge);
       }
+    },
+  })).actions((self) => ({
+    // addMeta: untrack((meta) => {
+    //   self._addMeta(getSnapshot(meta));
+    // }),
+    addMeta(meta) {
+      const snapshot = isStateTreeNode(meta) ? getSnapshot(meta) : meta;
+      return self.$addMetaSnapshot(snapshot);
+    },
+
+    removeMeta(idOrMeta: string | IAnyType) {
+      // overloading
+      if (isStateTreeNode(idOrMeta)) {
+        // @ts-ignore
+        idOrMeta = (idOrMeta as Instance<typeof Meta>)._id;
+      }
+      return self.$removeMetaId(idOrMeta as string);
     },
   }))
 );
