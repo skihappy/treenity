@@ -12,7 +12,8 @@
     "client": "parcel build src/client/index.html --out-dir dist/client-prod --public-url ./",
     "watch-client": "parcel watch src/client/index.html --out-dir dist/client",
     "serve-client": "parcel serve --port 3101 src/client/index.html --out-dir dist/client",
-    "jest": "jest --forceExit"
+    "jest": "jest --forceExit",
+    "lg": "parcel watch --target node --public-url ./src/logicEngine/test.ts"
   },
   "directories": {
     "lib": "src",
@@ -47,6 +48,7 @@
     "@feathersjs/socketio-client": "^4.5.8",
     "@feathersjs/transport-commons": "^4.5.8",
     "antd": "4.6.5",
+    "assert": "^2.0.0",
     "config": "^3.3.1",
     "cors": "latest",
     "dayjs": "^1.8.36",
@@ -70,6 +72,8 @@
     "reflect-metadata": "^0.1.13",
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
+    "ts-node": "^9.1.1",
+    "vm2": "^3.9.2",
     "styled-components": "^5.2.1",
     "winston": "^3.3.3"
   },
