@@ -8,7 +8,7 @@ values, of type specified by pin type. The type is one of registered types. Ther
 can be added by a hook at logic engine creation. Its advised to keep types serializable.  If not, logic engine will live
 entirely on the server and its state will not be restored from database on server restart.  Also, historic data will be
 incomplete and time travel will be limited. One good way to control serialization of values is to use snapshotProcecessor
-on their models. As example, functions can be stringified and rehydrated inside a vm.
+on their models. As example, functions can be stringified and rehydrated inside a scriptedFunc.
 
 When a value of output  pin is updated by setValue action of a pin, from inside updateOutputs action, the pin is invalidated 
 if changed. A simple '===' test is

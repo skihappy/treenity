@@ -5,8 +5,7 @@ import { Edge, Link } from '../edge';
 import config from '../../config-common';
 
 export const Timestamp = addType(
-  t
-    .model('timestamp', {
+  t.model('timestamp', {
       createdAt: t.optional(t.Date, () => new Date()),
       updatedAt: t.optional(t.Date, () => new Date()),
     })
