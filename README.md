@@ -16,6 +16,6 @@
 1. `yarn` to install dependencies
 1. `yarn serve-client`
 1. `yarn watch-server` in spare terminal window
-1. `node dist/index.js` to run server
+1. `node dist/index.ts` to run server
 
 Open <http://localhost:3101> in browser
