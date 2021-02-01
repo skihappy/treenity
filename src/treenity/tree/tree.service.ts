@@ -1,4 +1,4 @@
-import { Id, NullableId, Params, Service, ServiceMethods } from '@feathersjs/feathers';
+import { Id, NullableId, Paginated, Params, Service, ServiceMethods } from '@feathersjs/feathers';
 import { each } from 'lodash';
 
 import { makeUpdateFromActions, makeUpdateFromPatch } from '../model/make-patch-update';
@@ -6,12 +6,15 @@ import { Node } from './node';
 
 import { randomId } from '../../common/random-id';
 import assert from 'assert';
-import { Instance } from 'mobx-state-tree';
+import { Instance, SnapshotIn } from 'mobx-state-tree';
+import { check } from '../../utils/check';
 
 const cache = {};
 const subscriptions = {};
 
-export default class TreeService implements ServiceMethods<Instance<typeof Node>> {
+type InNode = SnapshotIn<typeof Node>;
+
+export default class TreeService implements ServiceMethods<InNode> {
   collection!: Service<any>;
   changes!: Service<any>;
   app: any;
@@ -39,7 +42,7 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     });
   }
 
-  subscribe(connection, objects, subId) {
+  subscribe(connection, objects: InNode[], subId?: string) {
     subId = subId || randomId();
     const cookie = connection.headers.cookie;
 
@@ -61,7 +64,7 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     return subId;
   }
 
-  removeSub(connection, id: string): void {
+  removeSub(connection, id: Id): void {
     const cookie = connection.headers.cookie;
 
     const { ids, subs } = subscriptions[cookie] ?? {};
@@ -75,6 +78,9 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
   unsubscribe(connection, subId) {
     const cookie = connection.headers.cookie;
     const info = subscriptions[cookie];
+
+    if (!subId) return; // XXX
+
     const sub = info.subs[subId];
     delete info.subs[subId];
 
@@ -90,8 +96,8 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     });
   }
 
-  async find(params: Params) {
-    const { subscribe, subId, ...query } = params.query;
+  async find(params: Params): Promise<InNode | InNode[] | Paginated<InNode> | null> {
+    const { subscribe, subId, ...query } = params.query || {};
     if (subscribe === false) {
       this.unsubscribe(params.connection, subId);
       return null;
@@ -121,7 +127,7 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
   async patch(id: NullableId, actions: any, params: Params) {
     const snapshot = (await this.collection.find({ query: { _id: id } }))[0];
     const node = Node.create(snapshot);
-    const [[update, extraUpdate], patch] = makeUpdateFromActions('', node, actions);
+    const [[update, extraUpdate], patch] = makeUpdateFromActions('', node, params.actions);
     update.$set = update.$set || {};
     update.$set.updatedAt = Date.now();
     update.$inc = { _r: 1 };
@@ -139,8 +145,10 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
     // this.emit(id, patch);
     // this.app.channel(id).send(patch);
   }
-  async remove(id: NullableId, params: Params) {
-    if ((await this.collection.remove(id).catch(() => false)) !== false) {
+
+  async remove(id: NullableId, params: Params): Promise<NullableId> {
+    check(id, 'id not defined');
+    if (id && (await this.collection.remove(id).catch(() => false)) !== false) {
       this.removeSub(params.connection, id);
     }
     return id;
@@ -149,7 +157,7 @@ export default class TreeService implements ServiceMethods<Instance<typeof Node>
   update(
     id: NullableId,
     data: Instance<typeof Node>,
-    params?: Params
+    params?: Params,
   ): Promise<Instance<typeof Node>[] | Instance<typeof Node>> {
     throw new Error('update not implemented');
   }

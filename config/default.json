@@ -10,6 +10,12 @@
     "entity": "user",
     "service": "users",
     "secret": "eVcdSnWgEnYq5bv0QZPb8/NKfKI=",
+    "cookie": {
+      "enabled": true,
+      "name": "feathers-jwt",
+      "httpOnly": false,
+      "secure": false
+    },
     "authStrategies": [
       "jwt",
       "local"

@@ -11,7 +11,7 @@ export const typeContexts = {
   notfound: {},
 };
 
-export type AnyAddComponentContext = string | string[] | Object;
+export type AnyAddComponentContext = string | string[] | { [context: string]: any };
 
 export function addComponent(
   type: IAnyModelType,
@@ -36,10 +36,10 @@ export function addComponent(
     });
   } else if (typeof context === 'object') {
     each(context, (contextConfig, name) => {
-      contexts[name] = { ...config, ...contextConfig, component };
+      contexts[name] = { ...config, ...contextConfig, component, context };
     });
   } else if (typeof context === 'string') {
-    contexts[context] = { component, ...config };
+    contexts[context] = { ...config, component, context };
   } else {
     throw new TypeError(`context of unknown type: ${typeof context}`);
   }
@@ -51,35 +51,42 @@ export const matchContexts = (contexts: { [context: string]: object }, matchTags
   return contexts[context];
 };
 
-export type ContextComponent = Function | Object;
+export type ContextComponent = Function | object;
 
-interface ContextConfig {
+interface TypeContextConfig {
   component: ContextComponent;
 
   [name: string]: any;
 }
 
 export const getTypeContextConfig = memoize(
-  function getTypeContextConfig(type: IAnyComplexType, context: string): ContextConfig | null {
-    const contexts = typeContexts[type.name];
+  function getTypeContextConfig(typeName: string, context: string): TypeContextConfig | null {
+    const contexts = typeContexts[typeName];
 
     if (!contexts) return null;
 
     const config = matchContexts(contexts, context) || contexts.resolve?.(context);
     return config;
   },
-  (type, context) => `${type.name}_${context}`,
+  (typeName, context) => `${typeName}_${context}`,
 );
 
-export const findTypeContextConfig = (types, context, noWarn = false) => {
-  return types.find((type) => getTypeContextConfig(type, context));
+// export const findTypeContextConfig = (typeNames, context, noWarn = false) => {
+//   return typeNames.find((typeName, idx) => getTypeContextConfig(typeName, context));
+// };
+export const findTypeContextIndex = (typeNames, context, noWarn = false) => {
+  return typeNames.findIndex((typeName) => getTypeContextConfig(typeName, context));
 };
 
-export function getComponent(type: IAnyComplexType, context: string, noWarn = false): ContextComponent | null {
-  const info = getTypeContextConfig(type, context);
-  if (!info) {
-    if (!noWarn) console.warn('Component not found for type', type.name, 'and context', context);
-    return null;
-  }
-  return info.component;
-}
+// export function getComponent(
+//   type: IAnyComplexType,
+//   context: string,
+//   noWarn = false
+// ): ContextComponent | null {
+//   const info = getTypeContextConfig(type.name, context);
+//   if (!info) {
+//     noWarn || console.warn('Component not found for type', type.name, 'and context', context);
+//     return null;
+//   }
+//   return info.component;
+// }

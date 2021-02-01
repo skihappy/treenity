@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Node } from '../../treenity/tree/node';
-import client from '../feathers';
+import { Node } from '../tree/node';
+import client from '../../client/feathers';
 import produce from 'immer';
 import { applyPatch, types, unprotect as _unprotect } from 'mobx-state-tree';
 
@@ -8,7 +8,7 @@ const unprotect = (mst) => (_unprotect(mst), mst);
 
 export function useServiceFind(name, query) {
   const q = JSON.stringify(query);
-  const nodes = useMemo(() => unprotect(types.array(Node).create()), [name, q]);
+  const [nodes] = useState(() => unprotect(types.array(Node).create()));
   const subIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -46,7 +46,9 @@ export function useServiceFind(name, query) {
     service.on('removed', removed);
 
     service.find({ query: { ...query, subscribe: true } }).then(({ data, subId }) => {
-      nodes.push(...data);
+      nodes.splice(0, nodes.length, ...data); // clear array
+      subIdRef.current = subId;
+      // nodes.push(...data);
     });
 
     return () => {
@@ -54,8 +56,15 @@ export function useServiceFind(name, query) {
       service.removeListener('patched', patched);
       service.removeListener('removed', removed);
       service.find({ query: { subscribe: false, subId: subIdRef.current } });
+      subIdRef.current = null;
     };
   }, [name, q]);
 
-  return nodes;
+  const find = async (query) => {
+    const service = client.service(name);
+    const { data } = await service.find({ query: { ...query, subId: subIdRef.current } });
+    nodes.push(...data);
+  };
+
+  return [nodes, find];
 }

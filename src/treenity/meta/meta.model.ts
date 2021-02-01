@@ -1,4 +1,4 @@
-import { IAnyModelType, IAnyType, IModelType, isIdentifierType, types } from 'mobx-state-tree';
+import { getParent, IAnyModelType, IAnyType, IModelType, isIdentifierType, types } from 'mobx-state-tree';
 import { mapValues } from 'lodash';
 import { addType } from '../registeredTypes';
 import {
@@ -20,8 +20,9 @@ export const Meta = types
     'meta',
     WithId,
     types.model({
+      _t: types.string,
       _tg: types.array(types.string),
-    })
+    }),
   )
   .actions((self) => ({
     update(fn) {
@@ -30,6 +31,11 @@ export const Meta = types
     set(obj) {
       Object.assign(self, obj);
     },
+  }))
+  .views(self => ({
+    get node() {
+      return getParent(self, 2);
+    },
   }));
 
 // export function meta2<T extends IModelType<any, any>, T1 extends IModelType<any, any>(fn: (T) => T1) {
@@ -37,19 +43,18 @@ export const Meta = types
 //   const type = fn()
 // }
 
-export function meta<P extends ModelPropertiesDeclaration, A extends ModelActions>(
-  name: string,
-  props: P,
-  actions: (self: Instance<IModelType<ModelPropertiesDeclarationToProperties<P>, any>>) => A,
-): IModelType<ModelPropertiesDeclarationToProperties<P>, A> {
-  const type = types.compose(name, Meta, types.model(props).actions(actions), types.model({ _t: name }));
+export function meta<T extends IAnyModelType>(name: string, model: T, override = false): T {
+  const type = types.compose(name, Meta, model, types.model({ _t: name })).named(name) as T;
 
-  return addType(type);
+  addType(type, override);
+
+  return type;
 }
 
 meta(
+  'some.meta',
   types
-    .model('some.meta', {
+    .model({
       some: types.string,
     })
     .actions((self) => ({

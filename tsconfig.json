@@ -1,16 +1,17 @@
 {
     "compilerOptions": {
-        "target": "es6",
-        "module": "commonjs",
-        "strict": true,
-        "noImplicitAny": false,
-        "outDir": "dist",
-        "rootDir": "./src",
-        "jsx": "react",
-        "allowSyntheticDefaultImports": true,
-        "experimentalDecorators": true,
-        "emitDecoratorMetadata": true,
-        "esModuleInterop": true
+      "target": "es6",
+      "module": "commonjs",
+      "strict": true,
+      "noImplicitAny": false,
+      "outDir": "dist",
+      "rootDir": "./src",
+      "jsx": "react",
+      "allowSyntheticDefaultImports": true,
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      "useDefineForClassFields": true,
+      "esModuleInterop": true
     },
     "exclude": [
         "test",

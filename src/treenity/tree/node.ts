@@ -3,6 +3,7 @@ import { addType, registeredTypes, t } from '../';
 import { getEnv, getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
 import { Edge, Link } from '../edge';
 import config from '../../config-common';
+import { addComponent } from '../context/context-db';
 
 export const Timestamp = addType(
   t
@@ -18,7 +19,10 @@ export const Timestamp = addType(
 );
 
 function dispatcher(snap: any): IAnyType {
-  if (snap._t) return registeredTypes[snap._t];
+  if (snap._t) {
+    const type = registeredTypes[snap._t];
+    if (type) return type;
+  }
 
   throw new Error(`type not found: '${snap._t}'`);
 }

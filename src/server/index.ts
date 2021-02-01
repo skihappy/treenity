@@ -1,3 +1,4 @@
+import './source-maps';
 import helmet from 'helmet';
 import cors from 'cors';
 
@@ -6,10 +7,13 @@ import express from '@feathersjs/express';
 import mongoService from 'feathers-mongodb';
 import socketio from '@feathersjs/socketio';
 import configuration from '@feathersjs/configuration';
+import authentication from './authentication';
+
 
 import '../common/index';
 
 import config from '../config-common';
+
 config.isServer = true;
 
 import { HelloService } from '../mods/server';
@@ -29,6 +33,7 @@ async function main() {
   app.use(express.urlencoded({ extended: true }));
   app.configure(express.rest());
   app.configure(socketio());
+  authentication(app);
   app.use(express.errorHandler());
 
   const db = await createClientDb(app);
@@ -42,13 +47,19 @@ async function main() {
     'changes',
     mongoService({
       Model: db.collection('changes'),
-    })
+    }),
   );
   app.use(
     'edges',
     mongoService({
       Model: db.collection('edges'),
-    })
+    }),
+  );
+  app.use(
+    'users',
+    mongoService({
+      Model: db.collection('users'),
+    }),
   );
   app.use('tree', new TreeService());
   app.service('tree').hooks({
