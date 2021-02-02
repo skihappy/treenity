@@ -28,10 +28,6 @@ export function randomId(length = 12): string {
   return result
 }
 
-export const MWithId = t.model('withId', {
-  _id: t.optional(t.identifier, randomId()),
-})
-
 export const assert = (guard: boolean | (() => boolean), msg: string) => {
   const e = new Error(msg)
   const failed = typeof guard === 'boolean' ? guard : guard()
@@ -81,4 +77,10 @@ export const tScriptedFunc = t.custom<string, TFunc>({
 })
 
 export const modelWithID = (name: string, properties: ModelPropertiesDeclaration): IAnyModelType =>
-  t.compose('MRegistry', MWithId, t.model('', properties))
+  t.compose(
+    'MRegistry',
+    t.model('withId', {
+      _id: t.optional(t.identifier, randomId()),
+    }),
+    t.model('', properties)
+  )

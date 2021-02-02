@@ -1,6 +1,5 @@
 import { isType, IAnyModelType, IAnyType, IModelType, SnapshotOrInstance, Instance, types as t } from 'mobx-state-tree'
 import { MWithId, tRainbowArray } from './utils'
-import getBuiltInTypes from './builtin.types'
 import MCast from './cast.model'
 import { TFunc, modelWithID, tScriptedFunc, assert } from './utils'
 import { computed, observable } from 'mobx'
@@ -14,18 +13,17 @@ interface IValueFactory {
 }
 type TEntry = [string, IValueFactory]
 export type TRegistry = TEntry[]
+export interface ISetupProps {
+  type?: any
+  verifyValue?: (any) => boolean
+  builtinEntries?: ([string, IValueFactory] | undefined)[]
+  isSetup?: boolean
+}
 
 const MRegistry = modelWithID('MRegistry', {
   name: t.string,
   scriptedEntries: t.optional(tScriptedRegistryEntries, []),
 }).extend((self) => {
-  interface ISetupProps {
-    type?: any
-    verifyValue?: (any) => boolean
-    builtinEntries?: ([string, IValueFactory] | undefined)[]
-    isSetup?: boolean
-  }
-
   const params: ISetupProps = {}
   const isSetup = {}
   // @ts-ignore
@@ -41,17 +39,6 @@ const MRegistry = modelWithID('MRegistry', {
 
   return {
     views: {
-      setup: (name: string, props: ISetupProps) => {
-        assert(!params.isSetup, `can not redefine registry ${self.name}`)
-        const {
-          isSetup = true,
-          type,
-          verifyValue = !!type ? (value) => type.is(value) : (value) => true,
-          builtinEntries = [],
-        } = props
-        Object.assign(params, { isSetup, type, verifyValue, builtinEntries: [...builtinEntries] })
-      },
-
       get(entryName): any {
         const entry = registry.find(([name, value]) => name === entryName)
         assert(!!entry, `entry ${entryName} not in registry ${self.name}`)
@@ -63,6 +50,16 @@ const MRegistry = modelWithID('MRegistry', {
       },
     },
     actions: {
+      setup: (name: string, props: ISetupProps) => {
+        assert(!params.isSetup, `can not redefine registry ${self.name}`)
+        const {
+          isSetup = true,
+          type,
+          verifyValue = !!type ? (value) => type.is(value) : (value) => true,
+          builtinEntries = [],
+        } = props
+        Object.assign(params, { isSetup, type, verifyValue, builtinEntries: [...builtinEntries] })
+      },
       add(name: string, valueFactory: string | IValueFactory): void {
         const entries = typeof valueFactory === 'string' ? self.scriptedEntries : params.builtinEntries
         assert(
