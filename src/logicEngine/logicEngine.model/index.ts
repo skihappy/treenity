@@ -1,9 +1,8 @@
 import { isType, IAnyModelType, IAnyType, IModelType, SnapshotOrInstance, Instance, types as t } from 'mobx-state-tree'
-import { MWithId, tRainbowArray } from '../utils'
+import { modelWithID, tScriptedFunc, tRainbowArray } from '../utils'
 import MCast from '../cast.model'
 import MRegistry from '../registry.model'
 import type { ISetupProps as IRegistrySetupProps } from '../registry.model'
-import { tScriptedFunc, modelWithID } from '../utils'
 import MBlock from './blockDef.model/block.model'
 import type { IBlockSpec } from './blockDef.model/block.model'
 
