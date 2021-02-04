@@ -1,5 +1,6 @@
 import { Id, NullableId, Paginated, Params, Service, ServiceMethods } from '@feathersjs/feathers';
 import { each } from 'lodash';
+import Oplog from 'mongo-oplog';
 
 import { makeUpdateFromActions, makeUpdateFromPatch } from '../model/make-patch-update';
 import { Node } from './node';
@@ -25,12 +26,25 @@ export default class TreeService implements ServiceMethods<InNode> {
     this.changes = app.service('changes');
     const service = app.service(path);
 
+    // try to enable oplog for tree
+    const mongoUrl = app.get('mongodb');
+    const lastSlash = mongoUrl.lastIndexOf('/');
+    const oplogUrl = mongoUrl.slice(0, lastSlash) + '/local';
+    const dbName = mongoUrl.slice(lastSlash + 1);
+
+    this.oplog = Oplog(oplogUrl, { ns: `${dbName}\.nodes` });
+    this.oplog.on('insert', doc => this.emit('created', doc.o));
+    this.oplog.on('delete', doc => this.emit('removed', doc.o));
+    this.oplog.on('update', doc => this.emit('updated', doc.o));
+    this.oplog.tail();
+
+
     service.publish('created', (data) => {
-      return [app.channel(data._p)];
+      return app.channel(data._p);
     });
     service.publish('patched', (data) => {
       // publish this changes to object channel and parent object channel
-      return [app.channel(data.id), app.channel(data._p)];
+      return [app.channel(data._id), app.channel(data._p)];
     });
     service.publish('removed', (id) => {
       return app.channel(id);
@@ -79,7 +93,7 @@ export default class TreeService implements ServiceMethods<InNode> {
     const cookie = connection.headers.cookie;
     const info = subscriptions[cookie];
 
-    if (!subId) return; // XXX
+    if (!subId || !info) return; // XXX
 
     const sub = info.subs[subId];
     delete info.subs[subId];
@@ -97,7 +111,8 @@ export default class TreeService implements ServiceMethods<InNode> {
   }
 
   async find(params: Params): Promise<InNode | InNode[] | Paginated<InNode> | null> {
-    const { subscribe, subId, ...query } = params.query || {};
+    let { subscribe, subId, ...query } = params.query || {};
+    if (!params.connection) subscribe = undefined; // local server call
     if (subscribe === false) {
       this.unsubscribe(params.connection, subId);
       return null;
@@ -109,7 +124,7 @@ export default class TreeService implements ServiceMethods<InNode> {
 
       return { data, subId };
     }
-    return { data };
+    return { data, total: data.length, skip: 0, limit: data.length };
   }
 
   async get(id: Id, params: Params) {

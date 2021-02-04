@@ -1,9 +1,8 @@
 import { Meta } from '../meta/meta.model';
 import { addType, registeredTypes, t } from '../';
-import { getEnv, getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
+import { getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
 import { Edge, Link } from '../edge';
 import config from '../../config-common';
-import { addComponent } from '../context/context-db';
 
 export const Timestamp = addType(
   t
@@ -44,6 +43,11 @@ const NodeModel = t.compose(
     _r: t.optional(t.number, 0),
     _m: t.array(t.union({ dispatcher }, UnionMeta)),
   })
+    .views(self => ({
+      get metas() {
+        return self._m;
+      },
+    })),
 );
 
 export const Node = addType(
@@ -64,7 +68,7 @@ export const Node = addType(
     $createEdge(to: Instance<typeof Link>) {
       if (config.isServer) {
         const edge = Edge.create({
-          from: Link.create({ nodeId: self._id }),
+          from: Link.create({ node: self._id }),
           to,
         });
         // Edges.create(edge);
@@ -89,3 +93,6 @@ export const Node = addType(
     },
   }))
 );
+
+
+export type INode = Instance<typeof Node>;

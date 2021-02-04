@@ -92,7 +92,7 @@ const TreeRootLayout = observer(function TreeRootLayout({ value }: any) {
         />
       </Sider>
       <Layout>
-        <Header>Header</Header>
+        <MainHeader>Header</MainHeader>
         <Content style={{ height: '100%' }}>
           <RenderMeta value={current} context="layout" />
         </Content>
@@ -104,4 +104,4 @@ const TreeRootLayout = observer(function TreeRootLayout({ value }: any) {
   );
 });
 
-addComponent(Node, 'react layout root', {}, TreeRootLayout);
+addComponent(Node, 'react layout root', { ns: 'system' }, TreeRootLayout);

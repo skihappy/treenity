@@ -3,7 +3,7 @@
  */
 
 import { each, memoize } from 'lodash';
-import { IAnyComplexType, IAnyModelType } from 'mobx-state-tree';
+import { IAnyModelType } from 'mobx-state-tree';
 import { matchBestContext } from './match-context';
 
 export const typeContexts = {
@@ -77,16 +77,3 @@ export const getTypeContextConfig = memoize(
 export const findTypeContextIndex = (typeNames, context, noWarn = false) => {
   return typeNames.findIndex((typeName) => getTypeContextConfig(typeName, context));
 };
-
-// export function getComponent(
-//   type: IAnyComplexType,
-//   context: string,
-//   noWarn = false
-// ): ContextComponent | null {
-//   const info = getTypeContextConfig(type.name, context);
-//   if (!info) {
-//     noWarn || console.warn('Component not found for type', type.name, 'and context', context);
-//     return null;
-//   }
-//   return info.component;
-// }

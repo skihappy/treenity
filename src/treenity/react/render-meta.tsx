@@ -31,7 +31,7 @@ interface RenderMetaProps {
   props?: any;
 }
 
-export const RenderMeta = ({
+export const RenderMeta = React.memo(({
   value,
   onChange,
   type,
@@ -57,12 +57,8 @@ export const RenderMeta = ({
       key={forwardKey}
       context={ctx}
     />
-  ) : (
-    <span>
-      Component not found for type {typeName} in context {ctx}
-    </span>
-  );
-};
+  ) : null;
+});
 
 // export const RenderMetaType = ({ type, ...props }) => {
 //   const meta = props.node.getMeta(type);
