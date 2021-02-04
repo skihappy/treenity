@@ -15,6 +15,7 @@ const setupRegistry = (setupProps: IRegistrySetupProps): IAnyModelType => {
     }
   })
 }
+
 const MLogicEngine = modelWithID('logicEngine', {
   name: t.optional(t.string, ''),
   registries: t.model('registries', {
