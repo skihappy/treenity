@@ -1,8 +1,4 @@
-declare global {
-  interface Array<T> {
-    remove(value: T): number;
-  }
-}
+/// <reference path="./array-remove.d.ts" />;
 
 Array.prototype.remove = function remove(value: any) {
   const idx = this.indexOf(value);

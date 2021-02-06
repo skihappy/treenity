@@ -1,8 +1,9 @@
-import { Meta } from '../meta/meta.model';
+import { meta, Meta } from '../meta/meta.model';
 import { addType, registeredTypes, t } from '../';
 import { getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
 import { Edge, Link } from '../edge';
 import config from '../../config-common';
+import { randomId } from '../../common/random-id';
 
 export const Timestamp = addType(
   t
@@ -14,7 +15,7 @@ export const Timestamp = addType(
       setUpdatedAt() {
         self.updatedAt = new Date();
       },
-    }))
+    })),
 );
 
 function dispatcher(snap: any): IAnyType {
@@ -33,21 +34,23 @@ UnionMeta.isAssignableFrom = function (snap) {
   return true;
 };
 
-const NodeModel = t.compose(
+const NodeModel = meta(
   'node',
-  Meta,
-  Timestamp,
-  t.model({
-    name: t.string,
-    _p: t.string,
-    _r: t.optional(t.number, 0),
-    _m: t.array(t.union({ dispatcher }, UnionMeta)),
-  })
-    .views(self => ({
-      get metas() {
-        return self._m;
-      },
-    })),
+  t.compose(
+    Timestamp,
+    t.model({
+      name: t.string,
+      _p: t.string,
+      _pa: t.array(t.string),
+      _r: t.optional(t.number, 0),
+      _m: t.array(t.union({ dispatcher }, UnionMeta)),
+    })
+      .views(self => ({
+        get metas() {
+          return self._m;
+        },
+      })),
+  ),
 );
 
 export const Node = addType(
@@ -74,6 +77,14 @@ export const Node = addType(
         // Edges.create(edge);
       }
     },
+    $createChild(name: string) {
+      Node.create({
+        _id: randomId(),
+        _p: self._id,
+        _pa: [...self._pa, self._id],
+        name,
+      });
+    },
   })).actions((self) => ({
     // addMeta: untrack((meta) => {
     //   self._addMeta(getSnapshot(meta));
@@ -91,7 +102,11 @@ export const Node = addType(
       }
       return self.$removeMetaId(idOrMeta as string);
     },
-  }))
+    createChild(name: string) {
+      return self.$createChild(name);
+    },
+  })),
+  true,
 );
 
 

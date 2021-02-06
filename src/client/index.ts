@@ -8,6 +8,7 @@ import routes from './routes';
 import './feathers';
 import './tree';
 import '../treenity/react';
+import '../treenity/service/Sysinit.meta';
 import '../mods/client';
 import './components';
 

@@ -12,7 +12,7 @@ import configuration from '@feathersjs/configuration';
 import authentication from './authentication';
 
 
-import '../common/index';
+import '../common';
 
 import config from '../config-common';
 import { HelloService } from '../mods/server';

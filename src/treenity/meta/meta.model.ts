@@ -1,4 +1,12 @@
-import { getParent, IAnyModelType, IAnyType, IModelType, isIdentifierType, types } from 'mobx-state-tree';
+import {
+  getParent,
+  IAnyComplexType,
+  IAnyModelType,
+  IAnyType,
+  IModelType,
+  isIdentifierType,
+  types,
+} from 'mobx-state-tree';
 import { mapValues } from 'lodash';
 import { addType } from '../registeredTypes';
 import {
@@ -43,8 +51,8 @@ export const Meta = types
 //   const type = fn()
 // }
 
-export function meta<T extends IAnyModelType>(name: string, model: T, override = false): T {
-  const type = types.compose(name, Meta, model, types.model({ _t: name })).named(name) as T;
+export function meta<T extends IAnyModelType>(name: string, model: T, override = false) {
+  const type = types.compose(Meta, model, types.model({ _t: name })).named(name);
 
   addType(type, override);
 

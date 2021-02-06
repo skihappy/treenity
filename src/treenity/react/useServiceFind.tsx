@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { applyPatch, applySnapshot, types, unprotect as _unprotect } from 'mobx-state-tree';
 import { Node } from '../tree/node';
 import { useApp } from './useApp';
+import sift from 'sift';
 
 const unprotect = (mst) => (_unprotect(mst), mst);
 
 export function useServiceFind(name, query) {
-  const q = JSON.stringify(query);
   const [nodes] = useState(() => unprotect(types.array(Node).create()));
   const subIdRef = useRef<string | null>(null);
   const app = useApp();
@@ -28,10 +28,18 @@ export function useServiceFind(name, query) {
       }
     };
     const updated = (obj) => {
+      const matched = sift(query)(obj);
+
       console.log('updated', obj._id);
       const idx = nodes.findIndex((d) => d._id === obj._id);
       if (idx >= 0) {
-        applySnapshot(nodes[idx], obj);
+        if (matched) {
+          applySnapshot(nodes[idx], obj);
+        } else {
+          nodes.splice(idx, 1);
+        }
+      } else if (matched) {
+        nodes.push(obj);
       }
     };
 
@@ -70,7 +78,7 @@ export function useServiceFind(name, query) {
       service.find({ query: { subscribe: false, subId: subIdRef.current } });
       subIdRef.current = null;
     };
-  }, [name, q]);
+  }, [name, JSON.stringify(query)]);
 
   const find = async (query) => {
     const service = app.service(name);
