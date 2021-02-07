@@ -37,6 +37,9 @@ export const Meta = types
       fn(self);
     },
     set(obj) {
+      this.$set(obj);
+    },
+    $set(obj) {
       Object.assign(self, obj);
     },
   }))

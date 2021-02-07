@@ -51,10 +51,12 @@ export default class TreeService implements ServiceMethods<InNode> {
       this.emit('created', doc.o);
     });
     this.oplog.on('delete', doc => this.emit('removed', doc.o._id));
-    this.oplog.on('update', doc => {
-      if (this.oplogQueue.remove(doc._id) >= 0) return;
-      this.checkObject(doc.o, false);
-      this.emit('updated', doc.o);
+    this.oplog.on('update', async doc => {
+      const _id = doc.o2._id;
+      if (this.oplogQueue.remove(_id) >= 0) return;
+      const obj = await this.collection.get(_id);
+      this.checkObject(obj, false);
+      this.emit('updated', obj);
     });
     this.oplog.tail();
 
@@ -62,7 +64,11 @@ export default class TreeService implements ServiceMethods<InNode> {
     service.publish('created', (data, { channel }) => {
       return channel || app.channel(data._id);
     });
-    service.publish('patched', (data) => {
+    service.publish('patched', (patch) => {
+      // publish this changes to object channel and parent object channel
+      return app.channel(patch.id);
+    });
+    service.publish('updated', (data) => {
       // publish this changes to object channel and parent object channel
       return app.channel(data._id);
     });
