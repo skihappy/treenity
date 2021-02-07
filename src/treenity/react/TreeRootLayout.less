@@ -7,6 +7,50 @@
   background: none;
 }
 
-.ant-tree-indent {
-  width: 12px;
+//.ant-tree-indent {
+//  width: 12px;
+//}
+
+.sidermenu .ant-tree-list {
+  background: #001529;
+
+  .ant-tree-switcher {
+    background: #001529;
+    color: rgba(255, 255, 255, 0.65);
+  }
+}
+
+.sidermenu .ant-tree-list .ant-tree-treenode {
+  span.ant-tree-title {
+    color: rgba(255, 255, 255, 0.65);
+  }
+
+  .ant-tree-node-content-wrapper {
+    color: #bae7ff60;
+
+    button {
+      //display: none;
+      border: none;
+      margin: 0;
+      padding: 0 5px;
+    }
+
+    //
+    &:hover {
+      background-color: #002140;
+    }
+
+
+    &.ant-tree-node-selected {
+      background-color: #bae7ff40;
+
+      span.ant-tree-title {
+        //color: #001529;
+      }
+    }
+
+    span.ant-tree-title {
+      position: relative;
+    }
+  }
 }

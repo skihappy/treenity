@@ -2,6 +2,8 @@ import { Application, Id, NullableId, Paginated, Params, Service, ServiceMethods
 import { each, some } from 'lodash';
 import Oplog from 'mongo-oplog';
 import sift from 'sift';
+import { toJS } from 'mobx';
+import { isStateTreeNode } from 'mobx-state-tree';
 
 
 import { makeUpdateFromActions } from '../model/make-patch-update';
@@ -47,6 +49,7 @@ export default class TreeService implements ServiceMethods<InNode> {
 
     this.oplog = Oplog(oplogUrl, { ns: `${dbName}\.nodes` });
     this.oplog.on('insert', doc => {
+      if (this.oplogQueue.remove(doc.o._id) >= 0) return;
       this.checkObject(doc.o, true);
       this.emit('created', doc.o);
     });
@@ -91,6 +94,9 @@ export default class TreeService implements ServiceMethods<InNode> {
     service.hooks({
       after: {
         create: [disableEvent],
+        patch: [(ctx) => {
+          if (!ctx.result) ctx.event = null;
+        }],
         update: [disableEvent],
         remove: [disableEvent],
       },
@@ -195,9 +201,11 @@ export default class TreeService implements ServiceMethods<InNode> {
     return this.collection.get(id);
   }
   async create(data: any, params: Params) {
-    data._id = randomId();
-    if (this.opQueue) this.opQueue.push(data._id);
-    const obj = await this.collection.create(data, params);
+    // data._id = randomId();
+    // this.oplogQueue.push(data._id);
+    const jsonData = isStateTreeNode(data) ? data.toJSON() : data;
+
+    const obj = await this.collection.create(jsonData, params);
     await this.changes.create({ _id: obj._id, _: [{ op: 'add', path: '/', value: data }] }, params);
     // const subId = this.subscribe(params.connection, [obj], 'create');
     return obj;
@@ -208,8 +216,10 @@ export default class TreeService implements ServiceMethods<InNode> {
   // }
   async patch(id: string, actions: any, params: Params) {
     const snapshot = await this.collection.get(id);
-    const node = Node.create(snapshot);
+    const node = Node.create(snapshot, { app: this.app });
     const [[update, extraUpdate], patch] = makeUpdateFromActions('', node, actions);
+    if (patch.length === 0) return null;
+
     update.$set = update.$set || {};
     update.$set.updatedAt = Date.now();
     update.$inc = { _r: 1 };

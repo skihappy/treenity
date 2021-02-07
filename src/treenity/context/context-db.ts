@@ -3,7 +3,7 @@
  */
 
 import { each, memoize } from 'lodash';
-import { IAnyModelType } from 'mobx-state-tree';
+import { IAnyModelType, Instance } from 'mobx-state-tree';
 import { matchBestContext } from './match-context';
 
 export const typeContexts = {
@@ -13,17 +13,17 @@ export const typeContexts = {
 
 export type AnyAddComponentContext = string | string[] | { [context: string]: any };
 
-export function addComponent(
-  type: IAnyModelType,
+export function addComponent<T extends IAnyModelType>(
+  type: T,
   context: AnyAddComponentContext,
-  config: Object | ContextComponent,
-  component?: ContextComponent,
+  config: Object | ContextComponent<T>,
+  component?: ContextComponent<T>,
 ) {
   if (!component && !config) {
     console.warn('Component is undefined while adding', type, context);
   }
   if (!component) {
-    component = config;
+    component = config as ContextComponent<T>;
     config = {};
   }
 
@@ -51,10 +51,18 @@ export const matchContexts = (contexts: { [context: string]: object }, matchTags
   return contexts[context];
 };
 
-export type ContextComponent = Function | object;
+// TODO: fix callback type value from any
+export interface ContextComponentProps<T extends IAnyModelType> {
+  value: Instance<T>;
+  onChange: <Params extends any[] = any[0]>(callback: (value: Instance<T>, ...params: Params) => void) => (...params: Params) => void;
+}
+
+export type ContextComponent<T extends IAnyModelType> = (props: ContextComponentProps<T>) => any | object;
 
 interface TypeContextConfig {
-  component: ContextComponent;
+  component: ContextComponent<any>;
+
+  props?: any;
 
   [name: string]: any;
 }

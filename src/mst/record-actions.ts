@@ -134,7 +134,7 @@ function getRelativePathBetweenNodes(base: any, target: any): string {
  * @returns
  */
 export function onAction(target: IAnyStateTreeNode, listener: (call: ISerializedActionCall) => void): IDisposer {
-  return addMiddleware(target, function handler(rawCall, next) {
+  return addMiddleware(target, function handler(rawCall, next, abort) {
     if (rawCall.type === 'action' && rawCall.name.startsWith('$') /* && rawCall.id === rawCall.rootId*/) {
       const sourceNode = getStateTreeNode(rawCall.context);
       const info = {
@@ -143,7 +143,8 @@ export function onAction(target: IAnyStateTreeNode, listener: (call: ISerialized
         args: rawCall.args.map((arg: any, index: number) => serializeArgument(sourceNode, rawCall.name, index, arg)),
       };
       listener(info);
-      return next(rawCall);
+      abort(null);
+      // return next(rawCall);
     } else {
       return next(rawCall);
     }

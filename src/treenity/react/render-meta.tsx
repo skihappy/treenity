@@ -7,6 +7,8 @@ import { getType, IAnyType, isStateTreeNode, isType } from 'mobx-state-tree';
 
 import { getTypeContextConfig } from '../context/context-db';
 import { useMetaContext } from '../context/meta-context';
+import { useApp } from './useApp';
+import saveNode from '../tree/save-node';
 
 const getTypeName = (type) => {
   if (isType(type)) return type.name;
@@ -15,9 +17,12 @@ const getTypeName = (type) => {
   throw new Error('unknown type type');
 };
 
-const metaOnChange = (value) => {
-  return useCallback(() => console.warn(`node not specified for meta ${value} while onChange`), [
+const metaOnChange = (app, value) => (callback, deps = []) => {
+  const node = value.node;
+  return useCallback(() => saveNode(app, node, () => callback(value)), [
     value,
+    callback,
+    ...deps,
   ]);
 };
 
@@ -41,15 +46,19 @@ export const RenderMeta = React.memo(({
 }: RenderMetaProps) => {
   const typeName = getTypeName(type || value);
 
-  const change = onChange ?? metaOnChange(value);
+  const app = useApp();
+  const change = onChange ?? metaOnChange(app, value);
 
   const ctx = useMetaContext(context);
 
-  const { component: Component, ...config } = getTypeContextConfig(typeName, ctx) || {};
+  const info = getTypeContextConfig(typeName, ctx);
+  if (!info) return null;
+
+  const { component: Component, props: infoProps } = info;
 
   return Component ? (
     <Component
-      {...config?.props}
+      {...infoProps}
       value={value}
       type={type}
       onChange={change}

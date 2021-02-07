@@ -1,6 +1,6 @@
 import { meta, Meta } from '../meta/meta.model';
 import { addType, registeredTypes, t } from '../';
-import { getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
+import { getEnv, getSnapshot, IAnyType, Instance, isStateTreeNode } from 'mobx-state-tree';
 import { Edge, Link } from '../edge';
 import config from '../../config-common';
 import { randomId } from '../../common/random-id';
@@ -78,12 +78,13 @@ export const Node = addType(
       }
     },
     $createChild(name: string) {
-      Node.create({
+      const node = Node.create({
         _id: randomId(),
         _p: self._id,
         _pa: [...self._pa, self._id],
         name,
       });
+      getEnv(self).app.service('tree').create(node);
     },
   })).actions((self) => ({
     // addMeta: untrack((meta) => {

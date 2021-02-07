@@ -74,7 +74,7 @@ const TreeRootLayout = observer(function TreeRootLayout({ value }: any) {
 
   return (
     <Layout>
-      <Sider>
+      <Sider className="sidermenu">
         <SiderHeader>
           <Link to="/tree">
             <Logo>
@@ -89,6 +89,8 @@ const TreeRootLayout = observer(function TreeRootLayout({ value }: any) {
           onSelect={(keys) => setCurrentId(keys[0] || value._id)}
           className="tr-tree"
           treeData={treeData}
+          motion={null}
+          showLine
         />
       </Sider>
       <Layout>
