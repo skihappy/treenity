@@ -1,75 +1,111 @@
-import { isType, IAnyModelType, IAnyType, IModelType, SnapshotOrInstance, Instance, types as t } from 'mobx-state-tree'
-import { MWithId, tRainbowArray } from './utils'
-import MCast from './cast.model'
-import { TFunc, modelWithID, tScriptedFunc, assert } from './utils'
-import { computed, observable } from 'mobx'
+import { types as t } from 'mobx-state-tree'
+import { assert, toArray } from './utils'
+import { vClass, Serializable, Shape, stringType, Union, Refine } from './types'
 
-export const tScriptedRegistryEntries = t.array(tRainbowArray(t.string, tScriptedFunc))
-interface IValueFactoryProps {
-  get: (name: string) => any
-}
-interface IValueFactory {
-  (props: IValueFactoryProps): any
-}
-type TEntry = [string, IValueFactory]
-export type TRegistry = TEntry[]
-export interface ISetupProps {
-  type?: any
-  verifyValue?: (any) => boolean
-  builtinEntries?: ([string, IValueFactory] | undefined)[]
-  isSetup?: boolean
+interface entry {
+  name: string
+  value: any
 }
 
-const MRegistry = modelWithID('MRegistry', {
+const tScriptedEntry = t.model('scriptedEntry', {
   name: t.string,
-  scriptedEntries: t.optional(tScriptedRegistryEntries, []),
-}).extend((self) => {
-  const params: ISetupProps = {}
-  const isSetup = {}
-  // @ts-ignore
-  const registry: TRegistry = computed(() => [...self.scriptedEntries, ...(params.builtinEntries || [])])
-
-  const assertValue = (value) => {
-    const { type, verifyValue } = params
-    const errorMsg = `value ${value} is not valid in registry ${self.name}`
-    !!type && assert(type.is(value), errorMsg)
-    // @ts-ignore
-    assert(verifyValue(value), errorMsg)
-  }
-
-  return {
-    views: {
-      get(entryName): any {
-        const entry = registry.find(([name, value]) => name === entryName)
-        assert(!!entry, `entry ${entryName} not in registry ${self.name}`)
-        // @ts-ignore
-        const [name, valueFactory] = entry
-        const value = valueFactory({ get: self.get })
-        assertValue(value)
-        return value
-      },
-    },
-    actions: {
-      setup: (name: string, props: ISetupProps) => {
-        assert(!params.isSetup, `can not redefine registry ${self.name}`)
-        const {
-          isSetup = true,
-          type,
-          verifyValue = !!type ? (value) => type.is(value) : (value) => true,
-          builtinEntries = [],
-        } = props
-        Object.assign(params, { isSetup, type, verifyValue, builtinEntries: [...builtinEntries] })
-      },
-      add(name: string, valueFactory: string | IValueFactory): void {
-        const entries = typeof valueFactory === 'string' ? self.scriptedEntries : params.builtinEntries
-        assert(
-          !entries.first(([entryName, valueFactory]) => name === entryName),
-          `entry ${name} already exist in registry ${self.name}`
-        )
-        entries.push([name, valueFactory])
-      },
-    },
-  }
+  value: t.string,
 })
 
-export default MRegistry
+const vScriptedEntry = Serializable('scriptedEntry', { mstType: tScriptedEntry })
+
+const findIn = (entries: entry[]) => (name): entry | undefined =>
+  entries.find(({ name: entryName }: entry) => name === entryName)
+
+const insertIn = (entries: entry[]) => (entry): number => entries.push(entry)
+
+const deleteIn = (entries: entry[]) => (name): boolean => {
+  const index = entries.findIndex(({ name: entryName }: entry) => name === entryName)
+  if (index < 0) return false
+  entries.splice(index, 1)
+  return true
+}
+
+export const registryModel = (vm) => (vNakedValue: vClass) => {
+  const vScriptedValue = Refine('scriptedValue', {
+    type: stringType,
+    refine: (script) => vNakedValue.assert(vm.run(script)),
+  })
+
+  const vEntry = Shape('entry', {
+    propTypes: {
+      name: stringType,
+      value: Union('value', {
+        types: [vNakedValue, vScriptedValue],
+      }),
+    },
+    helpers: {
+      nakedValue: ({ name, value }) => (vScriptedValue.is(value) ? vm.run(vm.run(value as string)) : value),
+    },
+  })
+
+  return t
+    .model('MRegistry', {
+      name: t.string,
+      persistentEntries: t.optional(t.array(tScriptedEntry), []),
+    })
+    .views((self) => ({
+      assert(guard: boolean, errMessage?: string | string[]) {
+        assert(guard, [`registry ${self.name}`, ...toArray(errMessage)])
+      },
+    }))
+    .actions((self) => {
+      const volatileEntries: entry[] = []
+
+      const entries = (which: 'persistent' | 'volatile' | entry): entry[] => {
+        return which === ('persistent' || vScriptedEntry.is(which)) ? self.persistentEntries : volatileEntries
+      }
+
+      const verify = (func: () => any, errMessage?: string | string[]) => {
+        try {
+          func()
+        } catch (e) {
+          self.assert(false, errMessage)
+        }
+      }
+
+      //implements crud
+      return {
+        read(name: string): any {
+          const entry = findIn(entries('persistent')) || findIn(entries('volatile'))
+          self.assert(!!entry, `read: can not find entry ${name}`)
+          return vEntry.create(entry).nakedValue
+        },
+
+        upsert(entry: entry) {
+          verify(() => vEntry.assert(entry), 'upsert:  bad entry')
+          const { name, value } = entry
+          try {
+            this.delete(name)
+          } catch (e) {}
+          insertIn(entries(entry))(entry)
+        },
+
+        update(entry: entry) {
+          verify(() => vEntry.assert(entry), 'update:  bad entry')
+          const { name, value } = entry
+          verify(() => this.delete(name), `update: entry ${name} does not exists`)
+          insertIn(entries(entry))
+        },
+
+        insert(entry: entry) {
+          verify(() => vEntry.assert(entry), 'insert:  bad entry')
+          const { name, value } = entry
+          verify(() => this.read(name), `insert: entry ${name} already exists`)
+          insertIn(entries(entry))
+        },
+
+        delete(name: string) {
+          self.assert(
+            deleteIn(entries('persistent'))(name) || deleteIn(entries('volatile'))(name),
+            `delete: entry ${name} does not exist`
+          )
+        },
+      }
+    })
+}
