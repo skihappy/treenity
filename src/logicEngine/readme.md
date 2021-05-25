@@ -78,8 +78,8 @@ Its a pattern, a ghost, in the eye of beholder.
 And how do we define types?  By rejecting anything thats not the type. Whats left is it. Its a fuzzy concept,
 definition by exclusion. The engine of that is assert function. So, every time you crate a stereotype, an assertion,
 you are creating a particle. In human world its called a mem. A profile of a human, like a selfless dogooder, is a 
-particle, a human particle of kindness. When its composed with another type, a hippy chic, it becomes a graviton that
-glues us all into us.
+particle, a human particle of kindness. When its refined by another type, a hippy chic, it becomes a graviton that
+glues us all into a rainbow tribe.
 
 
 
