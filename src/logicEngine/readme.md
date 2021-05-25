@@ -1,36 +1,76 @@
-Heres how it works.
+This is the birds eye view. 
+Iv chosen to immitate a preexisting abstraction, 
+if it might seem a little intricate, i blame that guy.
 
-In a gist, each block runs as a state machine, triggering actions on state changes. The logic engine takes care of updating
-state of the block. The triggers react to the state changes. Trigger run inside an autorun in specified sequence.
+###### Its a particle zoo, thats the abstraction.
+There are classes of particles, e.g. a block class, and it includes all kinda different blocks. So,  group
+is a collective of similar particles.
 
-Each block has input and output pins, that can be connected, outputs to inputs in one to many fashion. Output pins have
-values, of type specified by pin type. The type is one of registered types. There are a number of builtin types, more
-can be added by a hook at logic engine creation. Its advised to keep types serializable.  If not, logic engine will live
-entirely on the server and its state will not be restored from database on server restart.  Also, historic data will be
-incomplete and time travel will be limited. One good way to control serialization of values is to use snapshotProcecessor
-on their models. As example, functions can be stringified and rehydrated inside a scriptedFunc.
+###### A particle.
+Is really a type that produces its instances, particle elements, the matter itself, like a photon produces packets of light. So, a block particle is
+a type of block, a model.  Happens to be a serializable mst model, in one of its representations, and that model 
+produces block instances, nodes of mobx state tree.
 
-When a value of output  pin is updated by setValue action of a pin, from inside updateOutputs action, the pin is invalidated 
-if changed. A simple '===' test is
-set as default, but a custom isSame predicate hook can be used for each pin.  Invalidated pin does not propagate
-to the blocks connected to the output pins. The exact strategy is left to the triggers, thus separating the state machine of
-the logic engine from its operational logic, which can change from block to block. However, such propagating behaviour
-is encapsulated in transactional trigger. When used ahead any other triggers, the invalidated output value will propagate
-downstream and no block will be executed till all input pins are valid again, ensuring integrity of input data and avoiding
-partial output updates.
+So, whats inside a particle object is different descriptions of what it is typing, expressed in a variety of typing systems 
+appropriate for the use case.
 
-it works recursively thru layers of composed blocks. Somehow, the top block gets triggered and updateOutputs action is
-fired. How it gets triggered is determined by setTrigger action. There are several built in triggers, but a custom one can be
-specified. Triggers can be composed inside custom trigger function. New triggers can be defined by addTrigger action.
-Triggers can be accessed thru triggers prop of block model,  for composition and to dynamically change triggers at runtime.
-A sequence of triggers can be specified by setTrigger. All triggers are invoked and results are ANDed. A new trigger can
-be specified by a sequence as well, with its own name. This design allows to isolate functionality from block state handling.
-The engine takes care of block state. Triggers are the brain connected to the block state machine.
+###### a particle class
+Its literally a class that instantiates an object,a particle of that class, given a description, one of representations of a particle.
+It creates all the faces, representations of what particle stands for, the particle element.  So, theres a block spec referencing all kinds of other 
+particles composing it, and the structure of that composition comes from the law governing block particle class.
 
-Each block can specify a model of its state. The block state is preserved between executions and can be mutated only
-from actions of the block, not from  outside, thus insuring all interactions only ver pin connections. Block state can be
-mutated only by setState action. It will update stateHasChanged flag of the block.  The flag is automatically reset before
-execution of updateOutputs action. The block state can be used to extend the state machine of the logic engine. Only trigger
-functions can observe state of other blocks and react to status changes. The updateOutputs action does not have access to
-anything outside of its block,  but does have access to local setState and local state. Again, this insures blocks react only
-to changes in inputs and local state. 
+###### particle laws
+They are the laws of nature, but thats too dramatic. Theres a law for each particle class, then each particle generates a 
+ton of its copies. Just refreshing.
+
+So, the law is a class factory, the particle class factory. Just a func that spits out a particle class.
+
+###### the grand unifying law of nature
+Thats the most boring part of the whole scheme. Its just a generic, most basic low of nature, producing 
+the most basic particle class with particles that are totally useless and not fertile. 
+
+Yep, it produces vacuum, which spawns all the complexity.
+
+But, that vacuum law contains the mechanism of particle class creation common to all laws and particle classes
+in all the instances of logic engine. It is a function that is extended to produce all particle classes known
+in all logic universes.
+
+###### More on particles.
+They produce not just elements, but components. Components are functions that produce a particle element.
+They live in the same namespace of particle class, as equals. They are very useful and necessary for a consistent, 
+or complete logic system.  So, a particle law also describes how components of a particle class render their 
+elements, but not completely. Each particle of a class can extend the class boilerplate. e.g. blocks can be 
+generated by block components, consuming some props.
+
+###### Why the zoo?
+Because composition. all the matter is composed of particle elements. Particles do the composition, when right stuff 
+gets together. That stuff is other elements.  Particle law defines the type of composition.
+
+###### Logic engine
+Is a complete logic system. It contains its custom particle classes in particle collections. It can import
+particles and particle classes from other instances of logic engines. It can export some of its partciles and 
+particle classes, to be imported into other engines. 
+
+Logic engines are serializable models.
+
+###### Particle collections.
+Are collections of particles of same class, like blocks, or flavors. Some of the particles in a 
+collection can live as volatile hard code, and some can be scripted as a serializable string. 
+
+Scripts are executed inside a secure virtual machine, a sandbox
+
+A particle of a class can be cast between volatile and persistent, living under the same name.
+
+###### Flavor particle class.
+Is a built in particle class. Its basically metadata. Some flavors are supplied as  prebuilt,  other
+flavors can be added in each logic engine, and shared as other particles.  The metadata a flavor types 
+can be rent on particle use, perhaps a usage fee for each instantiation.It can contain a description.
+It can be composed of other flavors. Flavors can be used as a tagging system, e.g. providing context
+to collections of particle elements crossing composition borders between elements. e.g. different blocks
+can have pins of same flavor, or have common flavor composing spices.
+
+
+
+
+
+

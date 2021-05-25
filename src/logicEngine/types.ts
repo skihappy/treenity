@@ -287,8 +287,11 @@ interface shapeComponentOptions {
   isStrict?: boolean
 }
 
-interface selfishHelpers {
-  [name: string]: (self: { [key: string]: any }) => any
+export interface selfishHelper {
+  (self: { [key: string]: any }): any
+}
+export interface selfishHelpers {
+  [name: string]: selfishHelper
 }
 
 interface propTypes {

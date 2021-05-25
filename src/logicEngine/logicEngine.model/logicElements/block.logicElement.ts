@@ -1,9 +1,24 @@
 import { logicElementClass } from '../logicElement.class'
 import type { logicEngine, registryRef } from '../types'
-import { mapShape } from '../../utils'
-import { Shape, Dict, serializableType, Literal, Union, stringType, functionType, ArrayType, vClass } from '../../types'
+import { mapShape,assert } from '../../utils'
+import {
+  Shape,
+  Dict,
+  serializableType,
+  Literal,
+  Union,
+  stringType,
+  functionType,
+  ArrayType,
+  vClass,
+  assertValue,
+    Tuple
+} from '../../types'
+import type {selfishHelper} from "../../types";
 import { registryRef as vRegistryRef } from '../types'
 import { filterShape } from '../../utils/filterShape'
+
+type connectionSpec=[fromAddress:string,toAddress:string]
 
 export const blockLogicElementClass = (logicEngine: logicEngine) => {
   const pinSpec = (side: 'input' | 'output') =>
@@ -27,24 +42,42 @@ export const blockLogicElementClass = (logicEngine: logicEngine) => {
     triggerToInputPinMap: Dict({
       propType: stringType,
     }).defaultsTo({}),
+    state:Dict({propType:vRegistryRef({registryName:'types'})})
   }
 
-  const baseBlockSpec = Shape({
+  interface blockState {
+    [key:string]:any
+  }
+  interface outputPinValues {
+    [pinName:string]:any
+  }
+  const baseBlockSpecType = Shape({
     propTypes: {
       ...commonBlockPropTypes,
       executor: functionType,
     },
-    helpers: {},
+    helpers: {
+      execute:():()=>=>
+    },
   })
 
-  const vConnections = stringType.dictOf()
+  const connectionSpecType=Tuple({elementTypes:[stringType,stringType]}).refined(
+      ()=>([fromAddress,toAddress]:connectionSpec)=>{
+        const assertAddress=(address)=>assert(address.split(':')===2,'bad connection address')
+        assertAddress(fromAddress)
+        assertAddress((toAddress))
+      }
+  )
+
+
+  const connectionsSpecType = stringType.dictOf()
 
   const assertConnections = (vBlockSpec: vClass) => (blockSpec) => {}
   const compositeBlockSpec = Shape({
     propTypes: {
       ...commonBlockPropTypes,
       blocks: vRegistryRef({ registryName: 'blocks' }).dictOf(),
-      connections: vConnections,
+      connections: ArrayType({elementType:connectionSpecType}),
     },
   })
   /*
@@ -80,9 +113,10 @@ export const blockLogicElementClass = (logicEngine: logicEngine) => {
       if (!vConnections.is(connections)) return
 
       const validateConnection = (from, to) => {
-        const validateSide = (token) => {
-          const tokens = token.split(':')
-          this.validate(tokens.length !== 1 && tokens.length !== 2, `connection ${from}->${to}: bad syntax - ${token}`)
+        const validateAddress = (address) => {
+          const [blockName,pinName] = address.split(':')
+
+          const block=!blockName || blockName==='self'?this.def:
 
           if (tokens.length == 1) {
             const [pinName] = tokens

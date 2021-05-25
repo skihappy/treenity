@@ -32,6 +32,7 @@ export const logicElementClass = (logicEngine: logicEngine, registryName: string
 
     private addMessage(msg): string {
       const addMessage = (msg: string) => {
+        if (!msg) return
         this.message = `
         ${msg}
         ${this.message}`
@@ -63,7 +64,7 @@ export const logicElementClass = (logicEngine: logicEngine, registryName: string
       const def = () => {
         const mapSpec = (spec: {}, specType: vClass) => {
           //we can not make any assumptions about spec. Its a fault tolerant draft, not type checked
-          if (!spec) return spec
+          if (!spec) return
 
           if (specType.isFlavor('registerRef')) {
             if (!specType.is(spec)) return spec
