@@ -12,29 +12,35 @@ export interface componentRef {
   props: object
 }
 
-export type registryRef = componentRef | elementRef
+export type collectionRef = componentRef | elementRef
 
-const componentProps = Dict('componentProps', {
-  propType: any,
-})
-
-const componentRef = Shape('componentRef', {
-  propTypes: {
-    name: stringType,
-    props: Optional('', {
-      type: componentProps,
-      defaultValue: {},
-    }),
+const componentProps = Dict(
+  {
+    propType: any,
   },
-})
+  'componentProps'
+)
 
-export interface registryRefProps {
-  registryName: string
+const componentRef = Shape(
+  {
+    propTypes: {
+      name: stringType,
+      props: Optional({
+        type: componentProps,
+        defaultValue: {},
+      }),
+    },
+  },
+  'componentRef'
+)
+
+export interface collectionRefProps {
+  collectionName: string
 }
 
-export const registryRef = createVComponent<registryRefProps>({
-  assertValue: ({ registryName }) => (ref) => {
-    assert(componentRef.is(ref), `bad ${registryName} registry ref `)
+export const collectionRef = createVComponent<collectionRefProps>({
+  assertValue: ({ collectionName }) => (ref) => {
+    assert(componentRef.is(ref), `bad ${collectionName} registry ref `)
   },
   casts: [
     {
@@ -42,13 +48,13 @@ export const registryRef = createVComponent<registryRefProps>({
       cast: (name) => ({ name, props: {} }),
     },
   ],
-  createValue: ({ registryName }) => (ref) => {
-    const vRef = Shape('', {
+  createValue: ({ collectionName }) => (ref) => {
+    const vRef = Shape({
       propTypes: componentRef.props.propTypes,
       helpers: {
-        registryName: () => registryName,
+        collectionName: () => collectionName,
       },
     })
   },
-  flavor: 'registryRef',
+  flavor: 'collectionRef',
 })

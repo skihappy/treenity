@@ -13,7 +13,7 @@ import { modelWithID, TFunc, tRainbowArray } from '../utils'
 import MCast from '../cast.model'
 import registerBlock from './registerBlock'
 import type { IBlockSpec } from './registerBlock'
-import registry from '../registry.model'
+import registry from '../collection.model'
 import ScriptedFuncDef from '../scriptedFuncDef.class'
 
 //registries contain both values and components, value factories

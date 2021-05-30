@@ -12,7 +12,7 @@ const tScriptedEntry = t.model('scriptedEntry', {
   value: t.string,
 })
 
-const vScriptedEntry = Serializable('scriptedEntry', { mstType: tScriptedEntry })
+const vScriptedEntry = Serializable({ mstType: tScriptedEntry }, 'scriptedEntry')
 
 const findIn = (entries: entry[]) => (name): entry | undefined =>
   entries.find(({ name: entryName }: entry) => name === entryName)
@@ -26,32 +26,38 @@ const deleteIn = (entries: entry[]) => (name): boolean => {
   return true
 }
 
-export const registryModel = (vm) => (vNakedValue: vClass) => {
-  const vScriptedValue = Refine('scriptedValue', {
-    type: stringType,
-    refine: (script) => vNakedValue.assert(vm.run(script)),
-  })
+export const collectionModel = (vm) => (vNakedValue: vClass) => {
+  const vScriptedValue = Refine(
+    {
+      type: stringType,
+      refine: () => (script) => vNakedValue.assert(vm.run(script)),
+    },
+    'scriptedValue'
+  )
 
-  const vEntry = Shape('entry', {
-    propTypes: {
-      name: stringType,
-      value: Union('value', {
-        types: [vNakedValue, vScriptedValue],
-      }),
+  const vEntry = Shape(
+    {
+      propTypes: {
+        name: stringType,
+        value: Union({
+          types: [vNakedValue, vScriptedValue],
+        }),
+      },
+      helpers: {
+        nakedValue: ({ name, value }) => (vScriptedValue.is(value) ? vm.run(vm.run(value as string)) : value),
+      },
     },
-    helpers: {
-      nakedValue: ({ name, value }) => (vScriptedValue.is(value) ? vm.run(vm.run(value as string)) : value),
-    },
-  })
+    'entry'
+  )
 
   return t
-    .model('MRegistry', {
+    .model('collectionModel', {
       name: t.string,
       persistentEntries: t.optional(t.array(tScriptedEntry), []),
     })
     .views((self) => ({
       assert(guard: boolean, errMessage?: string | string[]) {
-        assert(guard, [`registry ${self.name}`, ...toArray(errMessage)])
+        assert(guard, [`collection ${self.name}`, ...toArray(errMessage)])
       },
     }))
     .actions((self) => {
@@ -71,14 +77,14 @@ export const registryModel = (vm) => (vNakedValue: vClass) => {
 
       //implements crud
       return {
-        read(name: string): any {
+        read(name: string, errMsg: string = ''): any {
           const entry = findIn(entries('persistent')) || findIn(entries('volatile'))
-          self.assert(!!entry, `read: can not find entry ${name}`)
-          return vEntry.create(entry).nakedValue
+          self.assert(!!entry, [`read: can not find entry ${name}`, errMsg])
+          return vEntry.create(entry, errMsg).nakedValue
         },
 
-        upsert(entry: entry) {
-          verify(() => vEntry.assert(entry), 'upsert:  bad entry')
+        upsert(entry: entry, errMsg: string = '') {
+          verify(() => vEntry.assert(entry), ['upsert:  bad entry', errMsg])
           const { name, value } = entry
           try {
             this.delete(name)
@@ -86,25 +92,25 @@ export const registryModel = (vm) => (vNakedValue: vClass) => {
           insertIn(entries(entry))(entry)
         },
 
-        update(entry: entry) {
-          verify(() => vEntry.assert(entry), 'update:  bad entry')
+        update(entry: entry, errMsg) {
+          verify(() => vEntry.assert(entry), ['update:  bad entry', errMsg])
           const { name, value } = entry
-          verify(() => this.delete(name), `update: entry ${name} does not exists`)
+          verify(() => this.delete(name), [`update: entry ${name} does not exists`, errMsg])
           insertIn(entries(entry))
         },
 
-        insert(entry: entry) {
-          verify(() => vEntry.assert(entry), 'insert:  bad entry')
+        insert(entry: entry, errMsg: string = '') {
+          verify(() => vEntry.assert(entry), ['insert:  bad entry', errMsg])
           const { name, value } = entry
-          verify(() => this.read(name), `insert: entry ${name} already exists`)
+          verify(() => this.read(name), [`insert: entry ${name} already exists`, errMsg])
           insertIn(entries(entry))
         },
 
-        delete(name: string) {
-          self.assert(
-            deleteIn(entries('persistent'))(name) || deleteIn(entries('volatile'))(name),
-            `delete: entry ${name} does not exist`
-          )
+        delete(name: string, errMsg: string = '') {
+          self.assert(deleteIn(entries('persistent'))(name) || deleteIn(entries('volatile'))(name), [
+            `delete: entry ${name} does not exist`,
+            errMsg,
+          ])
         },
       }
     })

@@ -1,6 +1,6 @@
-import { registryModel } from '../registry.model'
+import { collectionModel } from '../collection.model'
 import { vClass, Shape, Union, Func, objectType, Dict, functionType } from '../types'
-import { logicElementClass } from './logicElement.class'
+import { particleClass } from './particle.class'
 import type { logicEngine, registryRef } from './types'
 import { registryRef as vRegistryRef } from './types'
 import { mapShape } from '../utils'
@@ -37,9 +37,9 @@ export const logicRegistryModel = (registryName: string, vElementSpec: vClass, l
     `${registryName}RegistrySpec`
   )
 
-  const elementClass = logicElementClass(logicEngine, registryName, vElementSpec)
+  const elementClass = particleClass(logicEngine, registryName, vElementSpec)
 
-  return registryModel(logicEngine.vm)(vRegistryValue).actions((self) => {
+  return collectionModel(logicEngine.vm)(vRegistryValue).actions((self) => {
     return {
       read(ref: registryRef) {
         const { name: componentName, props: componentProps } = vRegistryRef({
