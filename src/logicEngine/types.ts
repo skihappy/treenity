@@ -1,4 +1,4 @@
-import { LogicError, mapShape, typechecked, assert, toArray, reduceShape } from './utils'
+import { LogicError, mapShape, typechecked, assert, toArray, reduceShape, deepDefault } from './utils'
 import { IAnyType, isType, types as t } from 'mobx-state-tree'
 
 export interface func {
@@ -51,17 +51,17 @@ export class vClass<props extends object = object, value = any> {
       assertValue,
       props,
       name,
-      flavor = '',
-      casts = [],
-    } = constructorProps
+      flavor,
+      casts,
+    } = deepDefault(constructorProps, { props: {}, flavor: '', casts: [] })
 
     this.constructorProps = constructorProps
-    this.props = Object.freeze({ ...(props || {}) } as props)
+    this.props = Object.freeze({ ...props })
     this.name = name
     this.flavor = flavor
     this.createValue = createValue(this.props as props)
     this.assertValue = assertValue(this.props as props)
-    this.casts = casts || {}
+    this.casts = casts
   }
 
   assert(value: value, errMessage?: string) {
@@ -138,9 +138,9 @@ export class vClass<props extends object = object, value = any> {
     return ArrayType({ elementType: this as vClass<any, any> }, name)
   }
 
-  cast(casts: cast[] | cast): vClass<props> {
+  cast(casts: cast[] = []): vClass<props> {
     const { casts: oldCasts, ...rest } = this.constructorProps
-    return new vClass<props>({ ...rest, casts: [...toArray(oldCasts), ...toArray(casts)] })
+    return new vClass<props>({ ...rest, casts: [...(oldCasts as []), ...casts] })
   }
 }
 
@@ -148,11 +148,12 @@ interface vComponentProps<props extends object, value = any> {
   defaultProps?: Partial<props>
   createValue?: (props: Required<props>) => (value: value) => value
   assertValue: (props: Required<props>) => assertValue
+  casts?: cast[]
   flavor?: string
 }
 
 export function createVComponent<props extends object = object, value = any>(props: vComponentProps<props, value>) {
-  const { flavor: flavorProp = '', defaultProps = {} } = props
+  const { flavor: flavorProp = '', defaultProps = {}, casts = [] } = props
 
   return (componentProps: props, name: string = '') => {
     const defaultedComponentProps = mapShape(componentProps, (prop, name) => {

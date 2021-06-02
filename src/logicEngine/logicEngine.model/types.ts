@@ -1,7 +1,8 @@
-import { Shape, any, createVComponent, Dict, Optional, stringType, Union } from '../types'
+import { Shape, any, createVComponent, Dict, Optional, stringType, Union, v, vClass, cast } from '../types'
 import { logicEngineModel } from './index'
 import { Instance } from 'mobx-state-tree'
 import { assert } from '../utils'
+import { particleClassLaw } from './particle.class'
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -57,4 +58,35 @@ export const collectionRef = createVComponent<collectionRefProps>({
     })
   },
   flavor: 'collectionRef',
+})
+
+export const typeLaw: particleClassLaw = {
+  flavor: 'types',
+
+  composition: {
+    type: Union({
+      types: [
+        v,
+        collectionRef({
+          collectionName: 'types',
+        }),
+      ],
+    }),
+  },
+
+  decomposition: {
+    particleProps: {
+      type: ({ decomposition }) => decomposition,
+    },
+  },
+}
+
+export interface compositionType_ComponentProps {
+  type: vClass<any>
+  flavor: string
+}
+export const CompositionType = createVComponent<compositionType_ComponentProps>({
+  assertValue: ({ type: compositionType }) => (composition) => compositionType.assert(composition),
+  flavor: 'composition',
+  createValue: ({ type }) => (composition) => type.create(composition),
 })

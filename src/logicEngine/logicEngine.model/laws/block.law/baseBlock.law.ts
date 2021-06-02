@@ -4,9 +4,16 @@ import { collectionRef } from '../../types'
 import { pinsLaw } from './pins.law'
 import type { logicEngine } from '../../types'
 
+const baseBlockCompositionType = Shape({
+  propTypes: {},
+})
 export const baseBlockLaw: particleClassLaw = {
-  className: 'baseBlock',
-  compositionSpecType: Shape({
+  flavor: 'baseBlock',
+  composition: {
+    type: baseBlockCompositionType,
+  },
+
+  compositionSpecType: ShabaseBlock.particlepe({
     propTypes: {
       pins: pinsLaw.compositionSpecType.defaultsTo({}),
       trigger: collectionRef({ collectionName: 'blockTriggers' }),
@@ -23,7 +30,7 @@ export const baseBlockLaw: particleClassLaw = {
   }),
 }
 
-export const baseBlockParticle = (logicEngine: logicEngine) =>
+export const baseBlockLaw = (logicEngine: logicEngine) =>
   class extends particleClass(logicEngine, baseBlockLaw) {
     get vType() {
       const {

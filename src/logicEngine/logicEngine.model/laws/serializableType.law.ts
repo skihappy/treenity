@@ -1,24 +1,24 @@
-import { particleClass } from '../particle.class'
-import type { logicEngine } from '../types'
-import { serializableType, vClass, serializableComponentProps } from '../../types'
+import { serializableComponentProps, serializableType, Union, v, vClass } from '../../types'
+import { collectionRef } from '../types'
 import type { particleClassLaw } from '../particle.class'
-import { typeParticleClass } from './type.particle'
 
-const serializableTypeLaw: particleClassLaw = {
-  className: 'serializableTypes',
-  compositionSpecType: serializableType,
-}
+export const typeLaw: particleClassLaw = {
+  name: 'serializableTypes',
 
-export const serializableTypeParticleClass = (logicEngine: logicEngine) => {
-  return class extends typeParticleClass(logicEngine) {
-    constructor(public particleName: string, protected specDraft) {
-      super(particleName, specDraft)
-      this.law = serializableTypeLaw
-    }
+  composition: {
+    type: Union({
+      types: [
+        serializableType,
+        collectionRef({
+          collectionName: 'serializableTypes',
+        }),
+      ],
+    }),
+  },
 
-    // @ts-ignore
-    get mstType() {
-      return (this.def.props as serializableComponentProps).mstType
-    }
-  }
+  decomposition: {
+    particleProps: {
+      mstType: ({ decomposition }) => (decomposition as vClass<serializableComponentProps>).props.mstType,
+    },
+  },
 }

@@ -10,6 +10,8 @@ export * from './mapShape'
 export * from './cloneShape'
 export * from './deep'
 export * from './once'
+export * from './deepDefault'
+export * from './typeOf'
 
 export const tRainbowArray = (...types: IAnyType[]) =>
   t.refinement(t.array(t.union(..._.uniq(types))), (array) =>

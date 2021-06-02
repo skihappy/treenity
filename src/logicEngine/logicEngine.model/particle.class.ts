@@ -19,13 +19,14 @@ import type {
   maybeComponentProps,
   optionalComponentProps,
 } from '../types'
-import { v, vClass, array, Shape, Dict, functionType, Refine } from '../types'
+import { v, vClass, array, Shape, Dict, functionType, Refine, stringType } from '../types'
 import { mapShape, assert, reduceShape, toArray } from '../utils'
 import type { logicEngine, collectionRefProps } from './types'
 
-const vFuncDict = Dict({
-  propType: functionType(),
-})
+const vFuncDict = () =>
+  Dict({
+    propType: functionType(),
+  })
 
 type compositionType = vClass<any>
 type composition = any
@@ -57,8 +58,16 @@ interface particleProps {
   [name: string]: particleProp
 }
 
+interface flavorTransform {
+  compositionTransform: (fromFlavoredComposition: any) => any
+}
+
+interface flavorTransforms {
+  [fromFlavor: string]: flavorTransform
+}
+
 export interface particleClassLaw {
-  name: string
+  flavor: string
 
   composition:
     | {
@@ -67,6 +76,8 @@ export interface particleClassLaw {
 
         //additional constraints on composition type, the composition law
         constraints?: compositionConstraints
+
+        flavorTransforms?: flavorTransforms
       }
     | compositionType
 
@@ -80,18 +91,20 @@ export interface particleClassLaw {
 }
 
 const unconstrainedCompositionCast = {
-  fromType: functionType(),
   cast: (compositionType) => ({ type: compositionType }),
 }
 
 const vParticleClassLaw = Shape({
   propTypes: {
+    flavor: stringType,
+
     composition: Shape({
       propTypes: {
         type: v,
-        constraints: vFuncDict.defaultsTo({}),
+        constraints: vFuncDict().defaultsTo({}),
+        flavorTransforms: vFuncDict().defaultsTo({}),
       },
-    }).cast([unconstrainedCompositionCast]),
+    }),
 
     decomposition: Shape({
       propTypes: {
@@ -102,8 +115,6 @@ const vParticleClassLaw = Shape({
   },
 })
 
-type flavor = 'string'
-
 interface decomposer {
   (compositionType: compositionType, composition: composition): decomposition
 }
@@ -113,10 +124,10 @@ export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) =
 
   const {
     // @ts-ignore
-    composition: { type, constraints: compositionConstraints },
+    composition: { type, constraints: compositionConstraints, flavorTransforms },
   } = safeLaw
 
-  const compositionType = Object.entries(compositionConstraints).reduce(
+  const compositionType = (<any>Object.entries(compositionConstraints).reduce(
     (refinedType, [constraintName, constraint]) =>
       Refine(
         {
@@ -126,11 +137,11 @@ export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) =
         constraintName
       ),
     type
-  )
+  )).cast(/*TODO*/)
 
   return class particleClass {
     public composition: composition
-    public className: string
+    public flavor: string
 
     //specDraft is not type safe spec
     constructor(public particleName: string, composition: composition) {
@@ -138,36 +149,30 @@ export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) =
         constructor: {
           //@ts-ignore
           compositionType,
-          //@ts-ignore
+          // @ts-ignore
           law: {
-            className,
+            flavor,
             decomposition: { particleProps },
           },
         },
       } = this
 
       this.composition = compositionType.create(composition)
-      this.className = className
+      this.flavor = flavor
       Object.defineProperties(
         this,
         mapShape(particleProps, (particleProp, name) => ({ get: () => particleProp(this) }))
       )
     }
 
-    // @ts-ignore
-    static get law() {
-      return safeLaw
-    }
+    static law = safeLaw
 
-    // @ts-ignore
-    static get compositionType() {
-      return compositionType
-    }
+    static compositionType = compositionType
 
     // @ts-ignore
     get decomposition(): decomposition {
       const {
-        className,
+        flavor,
         composition,
         markerMessage,
         constructor: {
@@ -181,6 +186,8 @@ export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) =
       } = this
 
       const decompose = (compositionType: compositionType, composition: composition): decomposition => {
+        if (v.is(composition)) return composition
+
         switch (compositionType.flavor) {
           case 'collectionRef':
             const collectionName = (compositionType.props as collectionRefProps).collectionName
