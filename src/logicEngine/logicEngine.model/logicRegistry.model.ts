@@ -1,8 +1,8 @@
 import { collectionModel } from '../collection.model'
 import { vClass, Shape, Union, Func, objectType, Dict, functionType } from '../types'
 import { particleClass } from './particle.class'
-import type { logicEngine, registryRef } from './types'
-import { registryRef as vRegistryRef } from './types'
+import type { logicEngine, registryRef } from './types/types'
+import { registryRef as vRegistryRef } from './types/types'
 import { mapShape } from '../utils'
 
 interface componentSpec {

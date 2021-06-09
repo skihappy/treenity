@@ -1,7 +1,7 @@
 import { particleClass, particleClassLaw } from '../particle.class'
-import type { logicEngine, collectionRef } from '../types'
+import type { logicEngine, collectionRef } from '../types/types'
 import { booleanType, Func, Dict, functionType, Shape, Union, v } from '../../types'
-import { collectionRef as vCollectionRef } from '../types'
+import { collectionRef as vCollectionRef } from '../types/types'
 import { typechecked } from '../../utils'
 
 const triggerParticleLaw: particleClassLaw = {

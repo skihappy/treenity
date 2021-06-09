@@ -1,5 +1,5 @@
 import { Union, v } from '../../types'
-import { collectionRef } from '../types'
+import { collectionRef } from '../types/types'
 import type { particleClassLaw } from '../particle.class'
 
 export const typeLaw: particleClassLaw = {
