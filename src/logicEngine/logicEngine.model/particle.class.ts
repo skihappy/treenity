@@ -15,101 +15,29 @@ import type {
   unionFlavorProps,
   lateFlavorProps,
   refineFlavorProps,
-  assertValue,
   maybeFlavorProps,
   optionalFlavorProps,
   funcFlavorProps,
 } from '../types'
 import { v, vClass, array, Shape, Dict, functionType, Refine, stringType } from '../types'
-import { mapShape, assert, reduceShape, toArray, LogicError } from '../utils'
-import type { logicEngine, collectionRefProps } from './types/types'
+import {mapShape, assert, reduceShape, toArray, LogicError, once} from '../utils'
+import type { logicEngine, particleComposition, flavor } from './types/types'
+import {
+  compositionConstraint,
+  levelDecomposition,
+  levelDecompositionFunc,
+  particleClassLaw, particleCompositionType,
+  vParticleClassLaw
+} from './types/law'
+import { pinAddress } from './laws/block.law/blockConnections.law'
 
-const vFuncDict = Dict({
-  propType: functionType,
-})
-
-type compositionType = vClass<any>
-type composition = any
-type stateDecomposition = any
-interface decomposition<stateNames extends string> {
-  (state: stateNames): stateDecomposition
-}
-type particleInstance = InstanceType<ReturnType<typeof particleClass>>
-
-interface compositionConstraint {
-  (composition: composition): void
-}
-
-interface compositionConstraints {
-  [name: string]: assertValue
-}
-
-interface decompositionConstraint<stateNames extends string> {
-  (decomposition: decomposition<stateNames>): void
-}
-
-interface decompositionConstraints<stateNames extends string> {
-  [name: string]: decompositionConstraint<stateNames>
-}
-
-interface states {
-  [state: string]: (stateDecomposition: stateDecomposition) => any
-}
-
-interface transforms {
-  [fromClassName: string]: (fromComposition: composition) => composition
-}
-
-export interface particleClassLaw<states extends string> {
-  className: string
-
-  composition: {
-    //Composition type, types how a particle of this class is composed from other laws
-    type: compositionType
-
-    //additional constraints on composition type, the composition law
-    constraints?: compositionConstraints
-
-    transforms?: transforms
-  }
-
-  decomposition: {
-    //additional refinements on composition type,expressed after decomposition
-    constraints?: decompositionConstraints<states>
-
-    //will appear on particle,particle class instance
-    states?: states
-  }
-}
-
-const vParticleClassLaw = Shape({
-  propTypes: {
-    className: stringType,
-
-    composition: Shape({
-      propTypes: {
-        type: v,
-        constraints: vFuncDict.defaultsTo({}),
-        transforms: vFuncDict.defaultsTo({}),
-      },
-    }),
-
-    decomposition: Shape({
-      propTypes: {
-        constraints: vFuncDict.defaultsTo({}),
-        states: vFuncDict.defaultsTo({}),
-      },
-    }),
-  },
-})
-
-export const particleClass = <states extends string>(logicEngine: logicEngine, law: particleClassLaw<states>) => {
+export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) => {
   const safeLaw = vParticleClassLaw.create(law)
 
   const {
-    className,
+    groupName,
     composition: { type, constraints: compositionConstraints, transforms },
-  } = safeLaw as particleClassLaw<states>
+  } = safeLaw as particleClassLaw
 
   const refineComposition = (constraintName: string, constraint: compositionConstraint) => (composition) => {
     try {
@@ -119,43 +47,38 @@ export const particleClass = <states extends string>(logicEngine: logicEngine, l
     }
   }
 
-  const compositionType = Object.entries(compositionConstraints || {})
-    .reduce(
-      (refinedType, [constraintName, constraint]) =>
-        Refine({
-          type: refinedType,
-          refine: refineComposition(constraintName, constraint),
-        }),
-      type
-    )
-    .cast(
-      mapShape(transforms || {}, (transform, fromClassName) => ({
-        cast: transform,
-        fromType: logicEngine.groups[fromClassName].law.composition.type,
-      }))
-    )
+  const compositionType = Object.entries(compositionConstraints || {}).reduce(
+    (refinedType, [constraintName, constraint]) =>
+      Refine({
+        type: refinedType,
+        refine: refineComposition(constraintName, constraint),
+      }),
+    type
+  )
 
   return class particleClass {
-    public composition: composition
-    public className: string = className
+    public flavor: flavor
+    public composition: particleComposition
+    public groupName: string = groupName
 
-    constructor(public flavor: string, composition: composition) {
+    constructor(composition: particleComposition) {
       const {
         constructor: {
           //@ts-ignore
           compositionType,
           // @ts-ignore
           law: {
-            decomposition: { states },
+            decomposition: { levels },
           },
         },
       } = this
 
       this.composition = compositionType.create(composition)
+      this.flavor = this.composition.flavor
 
       Object.defineProperties(
         this,
-        mapShape(states, (state, stateName) => ({ get: () => state(this.decomposition(stateName)) }))
+        mapShape(levels, (level, levelName) => ({ get: once(() => level(this.decomposition)) }))
       )
     }
 
@@ -163,12 +86,10 @@ export const particleClass = <states extends string>(logicEngine: logicEngine, l
 
     static compositionType = compositionType
 
-    // @ts-ignore
-    get decomposition(): decomposition {
+    protected decomposition(levelName:string): levelDecomposition {
       const {
         flavor,
         composition,
-        markerMessage,
         constructor: {
           // @ts-ignore
           compositionType,
@@ -179,11 +100,13 @@ export const particleClass = <states extends string>(logicEngine: logicEngine, l
         },
       } = this
 
-      const decompose = (compositionType: compositionType, composition: composition): decomposition => {
+      const decompose = (compositionType: particleCompositionType, composition: particleComposition): levelDecomposition => {
         if (v.is(composition)) return composition
 
-        switch (compositionType.flavor) {
-          case 'collectionRef':
+        switch (compositionType.flavor.name) {
+          case 'particleRef.shape':
+            const [transformTargetFlavor,transformTargetGroup]=
+
             const collectionName = (compositionType.props as collectionRefProps).collectionName
             return logicEngine.collections[collectionName].read(composition, markerMessage).decomposition
 

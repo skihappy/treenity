@@ -1,21 +1,7 @@
-import {
-  Shape,
-  any,
-  createVComponent,
-  Dict,
-  Optional,
-  stringType,
-  Union,
-  v,
-  vClass,
-  cast,
-  objectType,
-  Maybe
-} from '../../types'
+import { Shape, stringType, Union, objectType, createVComponent } from '../../types'
 import { logicEngineModel } from '../index'
 import { Instance } from 'mobx-state-tree'
 import { assert } from '../../utils'
-import { particleClassLaw } from '../particle.class'
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -23,80 +9,80 @@ export type logicEngine = Instance<typeof logicEngineModel>
 //Note, group name is specified by a particle type, normally used as a placeholder
 // in a compositionType of group law. Then, refs to other particles in particle compositions are written
 //implicitly.
-//
-export type particleElementRef= {
-  flavor: string
-  props: object
-} | string
-
-
-const particleComponentProps = Dict(
-  {
-    propType: any,
-  },
-  'particleComponentProps'
-)
-
-//if group not specified,  it will  be filled the placeholder of particle type in compositionType, if used inside a particle
-//composition. If used in compositionType, group will be defaulted to group name, the compositionType belongs to.
-const particleElementRef = Shape(
-  {
-    propTypes: {
-      group:Maybe({type:stringType}),
-      flavor: stringType,
-      props: Optional({
-        type: particleComponentProps,
-        defaultValue: {},
-      }),
-    },
-  },
-  'particleElementRef'
-).cast({
-  nonComponentRef:{
-    fromType: stringType,
-    cast: (name) => ({ name, props: {} }),
-  }
-})
-
-export interface particle_vComponentProps {
-  group: string
+export interface flavor {
+  flavorName: flavorTransformPath
+  props?: object
 }
 
-export const particleComposition=objectType
-export const particleCompositionComponent=Shape({
-  propTypes:{
-    propTypes:
-  }
+// transform path, dot notation, last part is target group name, first is source particle flavor, rest is group names of the path
+export type flavorTransformPath = string
+
+export interface componentRef extends flavor {
+  particleName?: string
+}
+
+export type elementRef = flavorTransformPath //transform path, dot notation
+
+export type particleRef = componentRef | elementRef
+
+export const vFlavorTransformPath = stringType.refined((flavorPath: string) => {
+  const [sourceParticleName, ...groupPath] = flavorPath.split('.')
+  const [targetGroup] = groupPath.reverse()
+  assert(!!sourceParticleName && !!targetGroup, 'must be formatted as particleName[.group]')
 })
 
-export const particle = createVComponent<particle_vComponentProps>({
-  assertValue: ({ group }) => (particle) => {
-    Union({
-      types:[particleElementRef,particleComposition]
-    }).assert(particle,`particle of group ${group}`)
+export const vParticleRef = Shape<componentRef>({
+  propTypes: {
+    particleName: stringType.defaultsTo(''),
+    flavorName: vFlavorTransformPath,
+    props: objectType.defaultsTo({}),
   },
-  createValue: ({ group }) => (particle) => {
-    const vRef = Shape({
-      propTypes: componentRef.props.propTypes,
-      helpers: {
-        collectionName: () => collectionName,
-      },
-    })
+}).cast({
+  elementRef: {
+    fromType: vFlavorTransformPath,
+    cast: (flavorName: string) => ({ particleName: flavorName, flavorName }),
+  },
+})
+
+export const vFlavor = Shape<flavor>({
+  propTypes: {
+    flavorName: vFlavorTransformPath,
+    props: objectType.defaultsTo({}),
+  },
+}).cast({
+  elementRef: {
+    fromType: vFlavorTransformPath,
+    cast: (flavorName: string) => ({ flavorName }),
+  },
+})
+
+export interface particleComposition extends componentRef {
+  [key: string]: any
+}
+
+export const vParticleComposition = Shape<particleComposition>({
+  propTypes: vParticleRef.flavor.props.propTypes,
+  isStrict: false,
+})
+
+const vParticleUnion = Union<componentRef | particleComposition>({
+  types: [vParticleRef, vParticleComposition],
+})
+
+export interface particleFlavorProps {
+  group: string //target group,  not path
+}
+
+export const vParticle = createVComponent<componentRef | particleComposition, particleFlavorProps>({
+  assert: ({ props: { group: targetGroup } }) => (value) => {
+    vParticleUnion.assert(value)
+    const { flavorName: transformPath, particleName } = value
+    const [particleGroup] = transformPath.split('.').reverse()
+    assert(
+      targetGroup === particleGroup,
+      `particle name=${particleName} flavor=${transformPath} must be of group ${targetGroup}`
+    )
   },
   flavor: 'particle',
-})
-
-export interface compositionType_ComponentProps {
-  type: vClass<any>
-  flavor: string
-}
-
-export const CompositionType = createVComponent<compositionType_ComponentProps>({
-  assertValue: ({ type: compositionType }) => (composition) => compositionType.assert(composition),
-  flavor: 'composition',
-  createValue: ({ type }) => (composition) => type.create(composition),
-})
-
-export const Element=createVComponent({
-  assertValue:
+  create: () => (value) => vParticleUnion.create(value),
 })
