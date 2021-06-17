@@ -14,9 +14,10 @@ import { v, vClass, array, Shape, Dict, functionType, Refine, stringType } from 
 import { mapShape, assert, reduceShape, toArray, LogicError } from '../../utils'
 import type { logicEngine, particleComposition } from '../types'
 import { particleClass } from '../particle.class'
+import { gTransform, gTransforms } from './gauge'
 
 const vFuncDict = Dict({
-  propType: functionType,
+  type: functionType,
 })
 
 export type particleCompositionType = vClass<particleComposition>
@@ -46,20 +47,21 @@ export interface decompositionConstraints {
   [name: string]: decompositionConstraint
 }
 
-export interface particleLevel {
-  (levelDecompositionFunc: levelDecompositionFunc): levelDecomposition
-}
-
-export interface particleLevels {
-  [levelName: string]: particleLevel
-}
-
 export interface transform {
   (fromElement: element): particleComposition
 }
 
 export interface transforms {
   [fromClassName: string]: transform
+}
+
+//a scalar transform, from gauge type to gauge type
+export interface gaugeScalar {
+  (gaugeValue: any): any
+}
+
+export interface particleProps {
+  [gaugeName: string]: gaugeScalar
 }
 
 export interface particleClassLaw {
@@ -80,7 +82,7 @@ export interface particleClassLaw {
     constraints?: decompositionConstraints
 
     //will appear on particle,particle class instance
-    levels?: particleLevels
+    props?: particleProps
   }
 }
 
@@ -99,7 +101,7 @@ export const vParticleClassLaw = Shape<particleClassLaw>({
     decomposition: Shape({
       propTypes: {
         constraints: vFuncDict.defaultsTo({}),
-        levels: vFuncDict.defaultsTo({}),
+        props: vFuncDict.defaultsTo({}),
       },
     }),
   },

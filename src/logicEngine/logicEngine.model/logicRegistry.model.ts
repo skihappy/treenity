@@ -2,7 +2,7 @@ import { collectionModel } from '../collection.model'
 import { vClass, Shape, Union, Func, objectType, Dict, functionType } from '../types'
 import { particleClass } from './particle.class'
 import type { logicEngine, registryRef } from './types/types'
-import { registryRef as vRegistryRef } from './types/types'
+import { groupRef as vRegistryRef } from './types/types'
 import { mapShape } from '../utils'
 
 interface componentSpec {
@@ -13,22 +13,16 @@ interface componentSpec {
 }
 
 export const logicRegistryModel = (registryName: string, vElementSpec: vClass, logicEngine: logicEngine) => {
-  const vComponentSpec = Shape(
-    {
-      propTypes: {
-        component: functionType,
-        props: Dict(
-          {
-            propType: vRegistryRef({
-              registryName: 'types',
-            }),
-          },
-          `${registryName}ComponentProps`
-        ),
-      },
+  const vComponentSpec = Shape({
+    propTypes: {
+      component: functionType,
+      props: Dict({
+        propType: vRegistryRef({
+          registryName: 'types',
+        }),
+      }),
     },
-    `${registryName}Component`
-  )
+  })
 
   const vRegistryValue = Union(
     {

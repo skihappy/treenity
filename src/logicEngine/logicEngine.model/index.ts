@@ -9,13 +9,10 @@ import {
   Instance,
   types as t,
 } from 'mobx-state-tree'
-import { modelWithID, TFunc, tRainbowArray } from '../utils'
-import MCast from '../cast.model'
-import registerBlock from './registerBlock'
-import type { IBlockSpec } from './registerBlock'
-import registry from '../collection.model'
-import ScriptedFuncDef from '../scriptedFuncDef.class'
+import { modelWithID } from '../utils'
+import { collectionModel } from '../collection.model'
 
+const gaugeModel = t.model('gauge', {})
 //registries contain both values and components, value factories
 const MTypeRegistry = registry(
   new ScriptedFuncDef('typeFactory', [['typeRegistryClone', (arg) => MTypeRegistry.is(arg)]], (result) =>

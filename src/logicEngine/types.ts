@@ -138,7 +138,7 @@ export class vClass<value = any, flavorProps extends object = object> {
   }
 
   dictOf() {
-    return Dict({ propType: this as vClass<any, any> })
+    return Dict({ type: this as vClass<any, any> })
   }
 
   unionWith(types: vClass[]): vClass<unionFlavorProps> {
@@ -315,7 +315,7 @@ export interface funcFlavorProps {
   args?: vClass<any, any>[]
   result?: vClass<any, any>
 }
-export const Func = createVComponent<() => any, funcFlavorProps>({
+export const Func = createVComponent<(...[]) => any, funcFlavorProps>({
   defaultFlavorProps: { args: [], result: any },
   assert: () => (func) => assert(typeof func === 'function', `not function type`),
   create: ({ props: { args, result } }) => (func) => typechecked(args, result)(func),
@@ -344,7 +344,7 @@ export interface selfishHelpers {
 }
 
 interface propTypes {
-  [propName: string]: vClass<any>
+  [propName: string]: vClass
 }
 
 export interface shapeFlavorProps {
@@ -411,22 +411,22 @@ export const Shape = createVComponent<object, shapeFlavorProps>({
 })
 
 export interface dictFlavorProps {
-  propType?: vClass
+  type?: vClass
 }
 export const Dict = createVComponent<object, dictFlavorProps>({
   defaultFlavorProps: {
-    propType: any,
+    type: any,
   },
-  assert: ({ props: { propType } }) => (shape) => {
+  assert: ({ props: { type } }) => (shape) => {
     objectType.assert(shape)
     const errMessages: string[] = Object.entries(shape).reduce((messages: string[], [name, prop]) => {
-      const errMessage = (propType as vClass).validate(prop, `bad prop ${name}`)
+      const errMessage = (type as vClass).validate(prop, `bad prop ${name}`)
       return errMessage ? [...messages, errMessage] : messages
     }, [])
     assert(!errMessages.length, errMessages)
   },
-  create: ({ props: { propType } }) => (shape: { [key: string]: any }) => {
-    const self = mapShape(shape, (prop) => (propType as vClass).create(prop))
+  create: ({ props: { type } }) => (shape: { [key: string]: any }) => {
+    const self = mapShape(shape, (prop) => (type as vClass).create(prop))
     return Object.freeze(self)
   },
   flavor: 'dict',
