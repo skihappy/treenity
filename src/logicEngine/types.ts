@@ -153,7 +153,7 @@ export class vClass<value = any, flavorProps extends object = object> {
     return ArrayType({ type: this as vClass })
   }
 
-  cast(casts: casts<value> = {}): vClass<value, flavorProps> {
+  setCast(casts: casts<value> = {}): vClass<value, flavorProps> {
     return new vClass<any, any>({
       ...this.vClass_defaultedProps,
       casts: { ...this.vClass_defaultedProps.casts, ...casts },
