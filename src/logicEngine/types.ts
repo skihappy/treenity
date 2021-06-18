@@ -124,6 +124,20 @@ export class vClass<value = any, flavorProps extends object = object> {
     return value
   }
 
+  //transform path is read backwards - toCastName,...,fromCastName
+  transform(value: any, transformPath: string[]): value {
+    const { cast } = transformPath.reverse().reduce(
+      ({ toType, cast }: { toType: vClass; cast: (any) => any }, castName) => {
+        const currentCast = toType.casts.find((cast) => cast.name === castName)
+        assert(!!currentCast, `type ${this.name}: bad cast name ${castName} in transform ${transformPath}`)
+        return { toType: (currentCast as cast).fromType, cast: (value) => (currentCast as cast).cast(cast) }
+      },
+      { toType: this, cast: (value) => value }
+    )
+
+    return cast(value)
+  }
+
   refined(refine: assert<value>) {
     return Refine({
       type: this as vClass<any, any>,
