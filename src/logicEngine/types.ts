@@ -77,7 +77,11 @@ export class vClass<value = any, flavorProps extends object = object> {
     this.flavor = (typeof flavor === 'string' ? { name: flavor as string, props: {} } : flavor) as complexFlavor<
       flavorProps
     >
-    this.casts = casts as casts<value>
+    this.casts = (casts as casts<value>).map(({ name, fromType, ...rest }) => ({
+      name: name || fromType.name,
+      fromType,
+      ...rest,
+    }))
   }
 
   assert(value: value, errMessage: string[] | string = '') {
@@ -107,10 +111,10 @@ export class vClass<value = any, flavorProps extends object = object> {
   }
 
   create(value: value, errMessage: string[] | string = ''): value {
-    const castEntry = Object.entries(this.casts).find(([castName, { fromType }]) => fromType.is(value))
+    const castEntry = this.casts.find(({ fromType }) => fromType.is(value))
 
     if (castEntry) {
-      const [castName, { fromType, cast }] = castEntry as [string, cast]
+      const { name: castName, cast, fromType } = castEntry as cast
       const castedValue = cast(fromType.create(value))
       this.assert(castedValue, [...toArray(errMessage), `bad cast ${castName}`])
       return castedValue
