@@ -37,24 +37,26 @@ export const vParticleRef = Shape<componentRef>({
     flavorName: vFlavorTransformPath,
     props: objectType.defaultsTo({}),
   },
-}).cast({
-  elementRef: {
+}).setCasts([
+  {
+    name: 'elementRef',
     fromType: vFlavorTransformPath,
     cast: (flavorName: string) => ({ particleName: flavorName, flavorName }),
   },
-})
+])
 
 export const vFlavor = Shape<flavor>({
   propTypes: {
     flavorName: vFlavorTransformPath,
     props: objectType.defaultsTo({}),
   },
-}).cast({
-  elementRef: {
+}).setCasts([
+  {
+    name: 'elementRef',
     fromType: vFlavorTransformPath,
     cast: (flavorName: string) => ({ flavorName }),
   },
-})
+])
 
 export interface particleComposition extends componentRef {
   [key: string]: any

@@ -280,20 +280,6 @@ export const Late = createVComponent<any, lateFlavorProps>({
   flavor: 'late',
 })
 
-export interface serializableFlavorProps {
-  mstType: IAnyType
-}
-
-export const Serializable = createVComponent<any, serializableFlavorProps>({
-  assert: ({ props: { mstType } }) => (value) => assert(mstType.is(value)),
-  flavor: 'serializable',
-  create: ({ props: { mstType } }) => (value) => mstType.create(value),
-})
-
-export const serializable = createV<vClass<any>>((type) =>
-  assert(type.flavor.name === 'serializable', 'must be serializable')
-)
-
 export interface maybeFlavorProps {
   type: vClass
 }
