@@ -30,6 +30,7 @@ export interface complexFlavor<flavorProps extends object = object> {
 export type flavor<flavorProps extends object = object> = simpleFlavor | complexFlavor<flavorProps>
 
 export interface cast<toValue = any> {
+  name?: string // defaults to name of fromType
   fromType: vClass<any>
   cast: (fromValue: any) => toValue
 }
@@ -42,9 +43,7 @@ export interface castFactories<toValue = any, flavorProps extends object = objec
   [castName: string]: castFactory<toValue, flavorProps>
 }
 
-interface casts<toValue> {
-  [castName: string]: cast<toValue>
-}
+export type casts<toValue> = cast<toValue>[]
 
 interface vClass_props<value = any, flavorProps extends object = object> {
   name?: string
@@ -153,7 +152,7 @@ export class vClass<value = any, flavorProps extends object = object> {
     return ArrayType({ type: this as vClass })
   }
 
-  setCast(casts: casts<value> = {}): vClass<value, flavorProps> {
+  setCasts(casts: casts<value> = []): vClass<value, flavorProps> {
     return new vClass<any, any>({
       ...this.vClass_defaultedProps,
       casts: { ...this.vClass_defaultedProps.casts, ...casts },
@@ -201,7 +200,7 @@ export function createVComponent<value = any, flavorProps extends object = objec
       flavor: flavor as flavor<flavorProps>,
       assert: assertFactory(flavor),
       create: createFactory(flavor),
-      casts: mapShape(castFactories, (castFactory) => castFactory(flavor)),
+      casts: castFactories.map((castFactory) => castFactory(flavor)),
     })
   }
 }
