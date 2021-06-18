@@ -47,6 +47,7 @@ interface casts<toValue> {
 }
 
 interface vClass_props<value = any, flavorProps extends object = object> {
+  name?: string
   create?: create<value>
   assert: assert<value>
   flavor?: flavor<flavorProps>
@@ -55,21 +56,24 @@ interface vClass_props<value = any, flavorProps extends object = object> {
 
 export class vClass<value = any, flavorProps extends object = object> {
   protected readonly assertion: assert<value>
+  public readonly name: string
   public readonly flavor: complexFlavor<flavorProps>
   public readonly casts: casts<value>
   private readonly vClass_defaultedProps: vClass_props
 
   constructor(vClass_props: vClass_props<value, flavorProps>) {
     this.vClass_defaultedProps = deepDefault(vClass_props, {
+      name: '',
       flavor: { name: '', props: {} },
       casts: {},
       create: (value) => value,
     })
 
     const {
-      vClass_defaultedProps: { assert, flavor, casts },
+      vClass_defaultedProps: { assert, flavor, casts, name },
     } = this
 
+    this.name = name as string
     this.assertion = assert
     this.flavor = (typeof flavor === 'string' ? { name: flavor as string, props: {} } : flavor) as complexFlavor<
       flavorProps
@@ -183,7 +187,7 @@ export function createVComponent<value = any, flavorProps extends object = objec
     create: () => (value) => value,
   })
 
-  return function createV<instanceValue extends value = value>(flavorProps: flavorProps) {
+  return <instanceValue extends value = value>(flavorProps: flavorProps, name: string = '') => {
     const defaultedFlavorProps = deepDefault(flavorProps, defaultFlavorProps)
     const flavor = {
       name: flavorName,
@@ -193,6 +197,7 @@ export function createVComponent<value = any, flavorProps extends object = objec
     flavorPropsConstraint(flavor)
 
     return new vClass<instanceValue, flavorProps>({
+      name,
       flavor: flavor as flavor<flavorProps>,
       assert: assertFactory(flavor),
       create: createFactory(flavor),
@@ -202,6 +207,7 @@ export function createVComponent<value = any, flavorProps extends object = objec
 }
 
 export interface createVOptions<value = any> {
+  name?: string
   flavor?: string
   casts?: casts<value>
   create?: create<value>
@@ -209,6 +215,7 @@ export interface createVOptions<value = any> {
 
 export const createV = <value = any>(assert: assert<value>, options?: createVOptions<value>): vClass<value> => {
   const defaultedOptions = deepDefault(options || {}, {
+    name: '',
     flavor: '',
     casts: {},
     create: (value) => value,
@@ -266,8 +273,8 @@ export const Serializable = createVComponent<any, serializableFlavorProps>({
   create: ({ props: { mstType } }) => (value) => mstType.create(value),
 })
 
-export const serializableType = <vClass<any, serializableFlavorProps>>(
-  createV((type) => assert(type.flavor.name === 'serializable', 'must be serializable'))
+export const serializable = createV<vClass<any>>((type) =>
+  assert(type.flavor.name === 'serializable', 'must be serializable')
 )
 
 export interface maybeFlavorProps {
