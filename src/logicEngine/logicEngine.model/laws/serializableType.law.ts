@@ -1,5 +1,5 @@
 import { serializableComponentProps, serializableType, Union, v, vClass } from '../../types'
-import { collectionRef } from '../types/types'
+import { collectionRef } from '../types/particle.types'
 import type { particleClassLaw } from '../particle.class'
 
 export const typeLaw: particleClassLaw = {

@@ -1,8 +1,8 @@
 import { particleClass, particleClassLaw } from '../../particle.class'
 import { Dict, functionType, Shape, stringType } from '../../../types'
-import { collectionRef } from '../../types/types'
+import { collectionRef } from '../../types/particle.types'
 import { pinsLaw } from './pins.law'
-import type { logicEngine } from '../../types/types'
+import type { logicEngine } from '../../types/particle.types'
 
 const baseBlockCompositionType = Shape({
   propTypes: {},

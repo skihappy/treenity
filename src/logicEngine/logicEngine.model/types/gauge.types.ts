@@ -1,17 +1,17 @@
 /*
  The mysterious measurement is typed here.
- Each gauge represents a measurement of some type, condensed out of any possible structure. Particle classes
+ Each gaugeTypes represents a measurement of some type, condensed out of any possible structure. Particle classes
  can specify any number of available gauges, as a part of a class law, along with a scaling operator,  function.
- Each gauge, so included in the law, will become a prop of any particle of the class, with the value formed as prescribed,
+ Each gaugeTypes, so included in the law, will become a prop of any particle of the class, with the value formed as prescribed,
  of the type specified, by LAW.
 
  All in the name of declarative style. The LAW is a box defining a set of assertions, types, along with helper props, t
  he measurements, or gauges
 
- As an implementation detail in this  implementation, gauges can specify gauge transforms, scalar casts from  other gauge types.
- the cast happens after the victim gauge performed the measurement. Then, the result is stolen, and hacked in the image of
+ As an implementation detail in this  implementation, gauges can specify gaugeTypes transforms, scalar casts from  other gaugeTypes types.
+ the cast happens after the victim gaugeTypes performed the measurement. Then, the result is stolen, and hacked in the image of
  the invader, by the casting operator. The gTransforms picked up by a class law become additional props of the particles.
- This is analogous to installing a system of measurements, contained within the parent gauge.
+ This is analogous to installing a system of measurements, contained within the parent gaugeTypes.
  */
 
 import {
@@ -36,8 +36,10 @@ import {
   vClass,
   any as vAny,
   Tuple,
+  functionType,
+  any,
 } from '../../types'
-import { logicEngine } from './types'
+import { logicEngine } from './particle.types'
 import { mapShape } from '../../utils'
 
 //flavors of elementary gauges, each dealing with a structure of a particular elementary type. These are common to any structure
@@ -54,27 +56,6 @@ export type gElementNames =
   | 'literal'
   | 'dict'
   | 'late'
-
-//gauge transform.
-// A scalar operation transforming one type of measured value to another, for gauges are measurements,
-//condensing a value of its type from any structure. Transforms form a measurement system under its parent gauge name.
-//Each transform will generate a prop on a particle class implementing the gauge in its law.
-export interface gTransform<toGValue = any> {
-  (fromGValue: any): toGValue
-}
-
-//TODO: make it generic, so no runtime checks are needed
-export interface gTransforms<toGValue> {
-  [fromGaugeName: string]: gTransform<toGValue>
-}
-
-export const vGTransforms = <toGValue>(to_vGValue: vClass) =>
-  Dict<gTransforms<toGValue>>({
-    type: Func<gTransform<toGValue>>({
-      args: [vAny],
-      result: to_vGValue,
-    }),
-  })
 
 export interface gElement<elementDecomposition, gValue, elementFlavorProps extends object = object> {
   (flavorProps: elementFlavorProps): (elementDecomposition: elementDecomposition) => gValue | undefined
@@ -200,19 +181,15 @@ export const vGElements = <gValue = any>(vGValue: vClass<gValue>) => {
   return Shape<gElements>({ propTypes: elementTypes })
 }
 
-export interface gauge<gValue = any> {
-  type: vClass<gValue>
+export interface gaugeTypes<gValue = any> {
+  type?: vClass<gValue>
   elements: gElements<gValue>
-  transforms?: gTransforms<gValue>
 }
 
 export const vGauge = <gValue = any>(vGValue: vClass<gValue>) =>
-  Shape<gauge<gValue>>({
+  Shape<gaugeTypes<gValue>>({
     propTypes: {
-      type: v,
+      type: v.defaultsTo(any),
       elements: vGElements<gValue>(vGValue),
-      transforms: Dict({
-        type: vGTransforms<gValue>(vGValue),
-      }),
     },
   })

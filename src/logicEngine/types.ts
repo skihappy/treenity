@@ -7,7 +7,7 @@ export interface func {
 }
 
 interface funcFactory<funcValue extends func = func, flavorProps extends object = object> {
-  (flavor: complexFlavor<flavorProps>): funcValue
+  (flavor: componentFlavor<flavorProps>): funcValue
 }
 
 type assertFactory<value = any, flavorProps extends object = object> = funcFactory<assert<value>, flavorProps>
@@ -22,15 +22,18 @@ export interface create<value> {
   (value: value, message?: string | string[]): value
 }
 
-export type simpleFlavor = string
-export interface complexFlavor<flavorProps extends object = object> {
-  name: simpleFlavor
+export type elementFlavor<flavorName extends string = string> = flavorName
+export interface componentFlavor<flavorProps extends object = object, flavorName extends string = string> {
+  flavorName: elementFlavor<flavorName>
+  typeName?: string
   props: flavorProps
 }
-export type flavor<flavorProps extends object = object> = simpleFlavor | complexFlavor<flavorProps>
+export type flavor<flavorProps extends object = object, flavorName extends string = string> =
+  | elementFlavor<flavorName>
+  | componentFlavor<flavorProps, flavorName>
 
 export interface cast<toValue = any> {
-  name?: string // defaults to name of fromType
+  castName?: string // defaults to name of fromType
   fromType: vClass<any>
   cast: (fromValue: any) => toValue
 }
@@ -46,7 +49,6 @@ export interface castFactories<toValue = any, flavorProps extends object = objec
 export type casts<toValue> = cast<toValue>[]
 
 interface vClass_props<value = any, flavorProps extends object = object> {
-  name?: string
   create?: create<value>
   assert: assert<value>
   flavor?: flavor<flavorProps>
@@ -55,30 +57,32 @@ interface vClass_props<value = any, flavorProps extends object = object> {
 
 export class vClass<value = any, flavorProps extends object = object> {
   protected readonly assertion: assert<value>
-  public readonly name: string
-  public readonly flavor: complexFlavor<flavorProps>
+  public readonly typeName: string
+  public readonly flavorName: string
+  public readonly flavorProps: flavorProps
+  public readonly flavor: flavor<flavorProps>
   public readonly casts: casts<value>
-  private readonly vClass_defaultedProps: vClass_props
+  private readonly _constructorProps: vClass_props<value, flavorProps>
 
   constructor(vClass_props: vClass_props<value, flavorProps>) {
-    this.vClass_defaultedProps = deepDefault(vClass_props, {
-      name: '',
-      flavor: { name: '', props: {} },
+    this._constructorProps = deepDefault(vClass_props, {
+      flavor: { flavorName: '', props: {}, typeName: '' },
       casts: {},
       create: (value) => value,
     })
 
-    const {
-      vClass_defaultedProps: { assert, flavor, casts, name },
-    } = this
+    const { assert, flavor, casts } = this._constructorProps
 
-    this.name = name as string
     this.assertion = assert
-    this.flavor = (typeof flavor === 'string' ? { name: flavor as string, props: {} } : flavor) as complexFlavor<
-      flavorProps
-    >
-    this.casts = (casts as casts<value>).map(({ name, fromType, ...rest }) => ({
-      name: name || fromType.name,
+    this.flavor = flavor as flavor<flavorProps>
+    // @ts-ignore
+    const { flavorName, typeName = flavorName, props: flavorProps } =
+      typeof flavor === 'string' ? { flavorName: flavor as elementFlavor } : (flavor as componentFlavor<flavorProps>)
+    this.typeName = typeName
+    this.flavorName = flavorName
+    this.flavorProps = flavorProps || {}
+    this.casts = (casts as casts<value>).map(({ castName, fromType, ...rest }) => ({
+      castName: castName || fromType.typeName,
       fromType,
       ...rest,
     }))
@@ -88,7 +92,7 @@ export class vClass<value = any, flavorProps extends object = object> {
     try {
       this.assertion(value)
     } catch (e) {
-      throw new LogicError([`bad value=${value} of flavor ${this.flavor.name}`, ...toArray(errMessage || '')], e)
+      throw new LogicError([`bad value=${value} of flavor ${this.flavorName}`, ...toArray(errMessage || '')], e)
     }
   }
 
@@ -114,22 +118,22 @@ export class vClass<value = any, flavorProps extends object = object> {
     const castEntry = this.casts.find(({ fromType }) => fromType.is(value))
 
     if (castEntry) {
-      const { name: castName, cast, fromType } = castEntry as cast
+      const { castName, cast, fromType } = castEntry as cast
       const castedValue = cast(fromType.create(value))
       this.assert(castedValue, [...toArray(errMessage), `bad cast ${castName}`])
       return castedValue
     }
 
     this.assert(value, errMessage)
-    return value
+    return (this._constructorProps.create as create<value>)(value)
   }
 
   //transform path is read backwards - toCastName,...,fromCastName
   transform(value: any, transformPath: string[]): value {
     const { cast } = transformPath.reverse().reduce(
       ({ toType, cast }: { toType: vClass; cast: (any) => any }, castName) => {
-        const currentCast = toType.casts.find((cast) => cast.name === castName)
-        assert(!!currentCast, `type ${this.name}: bad cast name ${castName} in transform ${transformPath}`)
+        const currentCast = toType.casts.find((cast) => cast.castName === castName)
+        assert(!!currentCast, `type ${this.typeName}: bad cast name ${castName} in transform ${transformPath}`)
         return { toType: (currentCast as cast).fromType, cast: (value) => (currentCast as cast).cast(cast) }
       },
       { toType: this, cast: (value) => value }
@@ -171,9 +175,10 @@ export class vClass<value = any, flavorProps extends object = object> {
   }
 
   setCasts(casts: casts<value> = []): vClass<value, flavorProps> {
-    return new vClass<any, any>({
-      ...this.vClass_defaultedProps,
-      casts: { ...this.vClass_defaultedProps.casts, ...casts },
+    const { casts: oldCasts } = this._constructorProps
+    return new vClass<value, flavorProps>({
+      ...this._constructorProps,
+      casts: { ...this._constructorProps.casts, ...casts },
     })
   }
 }
@@ -182,8 +187,8 @@ interface createVComponent_Props<value = any, flavorProps extends object = objec
   defaultFlavorProps?: Partial<flavorProps>
   create?: createFactory<value, flavorProps>
   assert: assertFactory<value, flavorProps>
-  flavor: string
-  flavorPropsConstraint?: (flavor: complexFlavor<flavorProps>) => void
+  flavorName: string
+  flavorPropsConstraint?: (flavor: componentFlavor<flavorProps>) => void
   casts?: castFactories<value, flavorProps>
 }
 
@@ -195,7 +200,7 @@ export function createVComponent<value = any, flavorProps extends object = objec
     assert: assertFactory,
     create: createFactory,
     casts: castFactories,
-    flavor: flavorName,
+    flavorName,
     flavorPropsConstraint,
   } = deepDefault(props, {
     flavorPropsConstraint: () => {},
@@ -204,17 +209,17 @@ export function createVComponent<value = any, flavorProps extends object = objec
     create: () => (value) => value,
   })
 
-  return <instanceValue extends value = value>(flavorProps: flavorProps, name: string = '') => {
+  return <instanceValue extends value = value>(flavorProps: flavorProps, typeName?: string) => {
     const defaultedFlavorProps = deepDefault(flavorProps, defaultFlavorProps)
     const flavor = {
-      name: flavorName,
+      typeName,
+      flavorName,
       props: flavorProps,
     }
 
     flavorPropsConstraint(flavor)
 
     return new vClass<instanceValue, flavorProps>({
-      name,
       flavor: flavor as flavor<flavorProps>,
       assert: assertFactory(flavor),
       create: createFactory(flavor),
@@ -224,32 +229,30 @@ export function createVComponent<value = any, flavorProps extends object = objec
 }
 
 export interface createVOptions<value = any> {
-  name?: string
-  flavor?: string
+  typeName?: string
   casts?: casts<value>
   create?: create<value>
 }
 
 export const createV = <value = any>(assert: assert<value>, options?: createVOptions<value>): vClass<value> => {
-  const defaultedOptions = deepDefault(options || {}, {
-    name: '',
-    flavor: '',
-    casts: {},
+  const { typeName, casts, create } = deepDefault(options || {}, {
+    typeName: '',
+    casts: [],
     create: (value) => value,
   })
 
-  return new vClass<value>({ assert, ...defaultedOptions })
+  return new vClass<value>({ assert, casts, create, flavor: { typeName, flavorName: typeName, props: {} } })
 }
 
 export const v = <vClass<object, any>>(
-  createV((value) => assert(value instanceof vClass, `not logic type`), { flavor: 'v' })
+  createV((value) => assert(value instanceof vClass, `not logic type`), { typeName: 'v' })
 )
 
 export const any = createV(() => {})
 
 const vTypeof = <value = any>(type: string): vClass<value> =>
   createV<value>((value) => typeof value === type, {
-    flavor: type,
+    typeName: type,
   })
 
 export const stringType = vTypeof<string>('string')
@@ -267,7 +270,7 @@ export interface literalFlavorProps {
 
 export const Literal = createVComponent<any, literalFlavorProps>({
   assert: ({ props: { value: literalValue } }) => (value) => assert(value === literalValue, `must be ${literalValue}`),
-  flavor: 'literal',
+  flavorName: 'literal',
 })
 
 export interface lateFlavorProps {
@@ -277,7 +280,7 @@ export interface lateFlavorProps {
 export const Late = createVComponent<any, lateFlavorProps>({
   assert: ({ props: { typeFactory } }) => (value) => assert(typeFactory().is(value)),
   create: ({ props: { typeFactory } }) => (value) => typeFactory().create(value),
-  flavor: 'late',
+  flavorName: 'late',
 })
 
 export interface maybeFlavorProps {
@@ -289,14 +292,14 @@ export const Maybe = createVComponent<any, maybeFlavorProps>({
     type.assert(value)
   },
   flavorPropsConstraint: ({ props: { type } }) => {
-    assert(type.flavor.name === 'maybe', 'maybe: target flavor can not be maybe')
-    assert(type.flavor.name === 'optional', 'maybe: target flavor can not be optional')
+    assert(type.flavorName === 'maybe', 'maybe: target flavor can not be maybe')
+    assert(type.flavorName === 'optional', 'maybe: target flavor can not be optional')
   },
   create: ({ props: { type } }) => (value) => {
     if (typeof value === 'undefined') return value
     return type.create(value)
   },
-  flavor: 'maybe',
+  flavorName: 'maybe',
 })
 
 export interface optionalFlavorProps {
@@ -305,8 +308,8 @@ export interface optionalFlavorProps {
 }
 export const Optional = createVComponent<any, optionalFlavorProps>({
   flavorPropsConstraint: ({ props: { defaultValue, type } }) => {
-    assert(type.flavor.name === 'maybe', 'optional: target flavor can not be maybe')
-    assert(type.flavor.name === 'optional', 'optional: target flavor can not be optional')
+    assert(type.flavorName === 'maybe', 'optional: target flavor can not be maybe')
+    assert(type.flavorName === 'optional', 'optional: target flavor can not be optional')
     type.assert(defaultValue, 'optional: bad default value')
   },
   assert: ({ props: { type, defaultValue } }) => (value) => {
@@ -316,10 +319,10 @@ export const Optional = createVComponent<any, optionalFlavorProps>({
   create: ({ props: { defaultValue, type } }) => (value) => {
     return typeof value === 'undefined' ? defaultValue : type.create(value)
   },
-  flavor: 'optional',
+  flavorName: 'optional',
 })
 
-const vVoid = createV((value) => assert(typeof value === 'undefined'), { flavor: 'void' })
+const vVoid = createV((value) => assert(typeof value === 'undefined'), { typeName: 'void' })
 
 export interface funcFlavorProps {
   args?: vClass<any, any>[]
@@ -329,7 +332,7 @@ export const Func = createVComponent<(...[]) => any, funcFlavorProps>({
   defaultFlavorProps: { args: [], result: any },
   assert: () => (func) => assert(typeof func === 'function', `not function type`),
   create: ({ props: { args, result } }) => (func) => typechecked(args, result)(func),
-  flavor: 'func',
+  flavorName: 'func',
 })
 
 export interface refineFlavorProps {
@@ -343,7 +346,7 @@ export const Refine = createVComponent<any, refineFlavorProps>({
     refine(value)
   },
   create: ({ props: { type } }) => (value) => type.create(value),
-  flavor: 'refine',
+  flavorName: 'refine',
 })
 
 export interface selfishHelper {
@@ -363,7 +366,7 @@ export interface shapeFlavorProps {
   isStrict?: boolean
 }
 
-const assertShape = (flavor: complexFlavor<shapeFlavorProps>) => {
+const assertShape = (flavor: componentFlavor<shapeFlavorProps>) => {
   const {
     props: { propTypes, isStrict },
   } = flavor
@@ -417,7 +420,7 @@ export const Shape = createVComponent<object, shapeFlavorProps>({
     Object.defineProperties(self, helperSpecs)
     return Object.freeze(self)
   },
-  flavor: 'shape',
+  flavorName: 'shape',
 })
 
 export interface dictFlavorProps {
@@ -439,7 +442,7 @@ export const Dict = createVComponent<object, dictFlavorProps>({
     const self = mapShape(shape, (prop) => (type as vClass).create(prop))
     return Object.freeze(self)
   },
-  flavor: 'dict',
+  flavorName: 'dict',
 })
 
 const findType = (types: vClass[]) => (value) => types.find((vType) => vType.is(value))
@@ -451,7 +454,7 @@ export interface unionFlavorProps {
 export const Union = createVComponent<any, unionFlavorProps>({
   assert: ({ props: { types } }) => (value) => assert(!!findType(types)(value), `does not match any types in union`),
   create: ({ props: { types } }) => (value) => (findType(types)(value) as vClass).create(value),
-  flavor: 'union',
+  flavorName: 'union',
 })
 
 export const array = createV((value) => assert(Array.isArray(value), 'not an array'))
@@ -469,7 +472,7 @@ export const ArrayType = createVComponent<any[], arrayFlavorProps>({
     arr.forEach((element, index) => type.assert(element, `bad array element index=${index}`))
   },
   create: ({ props: { type } }) => (arr) => arr.map((element, index) => type.create(element)),
-  flavor: 'array',
+  flavorName: 'array',
 })
 
 export interface tupleFlavorProps {
@@ -483,7 +486,7 @@ export const Tuple = createVComponent<any[], tupleFlavorProps>({
     types.forEach((vElement, index) => vElement.assert(arr[index], `bad element index=${index}`))
   },
   create: ({ props: { types } }) => (arr) => arr.map((element, index) => types[index].create(element)),
-  flavor: 'tuple',
+  flavorName: 'tuple',
 })
 
 export interface jsonFlavorProps {
@@ -505,5 +508,5 @@ export const Json = createVComponent<string, jsonFlavorProps>({
 
     type.assert(jsonValue)
   },
-  flavor: 'json',
+  flavorName: 'json',
 })

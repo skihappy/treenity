@@ -1,5 +1,5 @@
 import {particleClass, particleClassLaw} from '../particle.class'
-import type { logicEngine, collectionRef } from '../types/types'
+import type { logicEngine, collectionRef } from '../types/particle.types'
 import { mapShape,assert } from '../../utils'
 import {
     Shape,
@@ -15,7 +15,7 @@ import {
     Tuple
 } from '../../types'
 import type {selfishHelper} from "../../types";
-import { collectionRef as vCollectionRef } from '../types/types'
+import { collectionRef as vCollectionRef } from '../types/particle.types'
 import { filterShape } from '../../utils/filterShape'
 
 const blockLaw:particleClassLaw={

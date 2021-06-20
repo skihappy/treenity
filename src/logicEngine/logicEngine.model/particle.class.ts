@@ -21,14 +21,14 @@ import type {
 } from '../types'
 import { v, vClass, array, Shape, Dict, functionType, Refine, stringType } from '../types'
 import {mapShape, assert, reduceShape, toArray, LogicError, once} from '../utils'
-import type { logicEngine, particleComposition, flavor } from './types/types'
+import type { logicEngine, particleComposition, flavor } from './types/particle.types'
 import {
   compositionConstraint,
   levelDecomposition,
   levelDecompositionFunc,
   particleClassLaw, particleCompositionType,
   vParticleClassLaw
-} from './types/law'
+} from './types/law.types'
 import { pinAddress } from './laws/block.law/blockConnections.law'
 
 export const particleClass = (logicEngine: logicEngine, law: particleClassLaw) => {
