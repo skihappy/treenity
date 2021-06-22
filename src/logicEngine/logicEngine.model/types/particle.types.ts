@@ -82,6 +82,7 @@ export interface particleFlavorProps {
   group: string //target group,  not path
 }
 
+export type particle = particleRef | particleComposition
 export const vParticle = createVComponent<componentParticleFlavor | particleComposition, particleFlavorProps>({
   assert: ({ props: { group: targetGroup } }) => (value) => {
     vParticleUnion.assert(value)

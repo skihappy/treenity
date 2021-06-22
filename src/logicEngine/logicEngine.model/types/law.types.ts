@@ -60,28 +60,17 @@ export interface particleClassLaw {
   //for the sake of others,  if you are to publish your law. Each fundamental should address a way of composing,as one
   //of types in particleComposition union
   fundamentalParticles: {
-    [flavorName: string]
+    [flavorName: string]: funentalParticle
   }
 
-  composition: {
-    //Composition type, types how a particle of this class is composed from other particles.
-    //Its usually a union of several flavors of composition. Each flavor begs for a component particle of its name
-    //Thats how new particle predictions are made. You find that particle precisely when you find first use case for it
-    // and create that particle. But, plan ahead and create a fundamental particle inside this law, so it comes naturally,
-    //to anyone using your law, so they dont have to rediscover it. Be nice to folks.
-    types: particleComposition[]
+  //composition transforms from other classes. Basically, a cast at composition level
+  transforms?: transforms
 
-    //composition transforms from other classes. Basically, a cast at composition level
-    transforms?: transforms
-  }
+  //additional refinements on props, derived from gauges
+  constraints?: gaugeConstraints
 
-  decomposition: {
-    //additional refinements on props, derived from gauges
-    constraints?: gaugeConstraints
-
-    //will appear on particle,particle class instance
-    props?: particleProps
-  }
+  //will appear on particle,particle class instance
+  props?: particleProps
 }
 
 export const vParticleClassLaw = Shape<particleClassLaw>({
