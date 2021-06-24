@@ -7,7 +7,7 @@
         "strict": true,
         "noImplicitAny": false,
         "outDir": "dist",
-        "rootDir": "./",
+        "rootDir": "./src",
         "jsx": "react",
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,

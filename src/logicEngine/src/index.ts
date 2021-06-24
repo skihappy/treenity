@@ -1,6 +1,9 @@
-import { IAnyModelType, IAnyType,IModelType,SnapshotOrInstance, Instance,types as t} from 'mobx-state-tree'
-import {randomId} from './random-id'
+/**
+ * hello
+ */
 
+import { IAnyModelType, IAnyType, IModelType, SnapshotOrInstance, Instance, types as t } from 'mobx-state-tree'
+import { randomId } from './random-id'
 
 /*
 //Pin values will be serialized for archiving. Keep it serializable. Use snapshot preprocessors on models if needed
@@ -85,134 +88,150 @@ interface ILogicEngine {
     block:(blockSpec:TBlockSpec)=>IAnyModelType
 }
 */
-const MWithId = t.model('withId', {
+const MWithId = t
+  .model('withId', {
     _id: t.identifier,
-}).actions((self) => ({
+  })
+  .actions((self) => ({
     afterCreate: () => {
-        self._id = randomId()
-    }
-}))
+      self._id = randomId()
+    },
+  }))
 
+const logicEngine = (logicEngineSpec: ILogicEngineSpec): ILogicEngine => {
+  const { valueTypes: getValueTypes } = logicEngineSpec
 
-const logicEngine=(logicEngineSpec:ILogicEngineSpec):ILogicEngine=>{
-    const {valueTypes:getValueTypes}=logicEngineSpec
+  const builtInValueTypes = {
+    string: t.string,
+    number: t.number,
+    integer: t.integer,
+    date: t.Date,
+  }
 
-    const builtInValueTypes={
-        string:t.string,
-        number:t.number,
-        integer:t.integer,
-        date:t.Date
-    }
+  const valueTypes = getValueTypes(builtInValueTypes)
 
-    const valueTypes=getValueTypes(builtInValueTypes)
-
-    const pinModelOfType=(typeName:string):(side:'in' | 'out')=>IAnyModelType=>{
-        const MPin=t.compose(`pin<${typeName}>`,MWithId,t.model('',{
-            type:typeName,
-            name:t.string,
-            block:t.maybe(t.reference(t.late(()=>MBlock))),
-        }))
-        const MPinStatus=t.model('pin status',{
-            isValid:t.boolean,
-            reason:t.maybe(t.string)
-        })
-        const MInPin=t.compose(`inputPin<${typeName}>`,  MPin,t.model('',{
-            side:'in',
-            toOutPin:t.maybe(t.reference(t.late(()=>MOutPin)))
-        })).actions((self)=>{
-            return {
-                connect:(toOutPin:Instance<typeof MOutPin>):void=>{
-                    self.toOutPin=toOutPin
-                    toOutPin.connect(self)
-                },
-                disconnect:():void=>{
-                    !!self.toOutPin && self.toOutPin.disconnect()
-                    delete self.toOutPin
-                }
-            }
-        }).view((self)=>{
-            const typeName=self.typeName
-            const castOutputValue=()=>{
-
-            }
-
-            return {
-                get status(){
-                    if(!self.toOutPin)return MPinStatus.create({
-                        isValid:false,
-                        reason:'not connected'
-                    })
-                    if(!self.toOutPin.status.isValid)return MPinStatus.create({
-                        isValid:false,
-                        reason:`connected output pin invalid: ${self.toOutPin.status.reason}`
-                    })
-                    return MPinStatus.create({
-                        isValid:true,
-                    })
-                }
-            }
-        })
-
-        const MOutPin=t.compose(`outputPin<${typeName}>`,  MWithId,t.model('',{
-            side:'out',
-            value:valueTypes[typeName],
-            toInPins:t.maybe(t.array(t.maybe(t.reference(MInPin)))),
-            status:MPinStatus
-        })).actions((self)=>{
-            const {status}=self
-            return {
-                setInvalid:(reason?:string)=>{
-                    status.isValid=false
-                    status.reason=`invalid: ${reason}`
-                },
-                setValid:()=>{
-                    status.isValid=true
-                    status.reason=''
-                },
-                connect:(toInPin:Instance<typeof MInPin>)=>{
-
-                },
-                disconnect:()=>{
-
-                },
-                setValue:()=>{
-
-                }
-            }
-        })
-
-        return (side:string):IAnyModelType=>{
-
-            if(side==='in'){
-                return
-            }
-        }
-    }
-    const pinModels=Object.entries(pinTypes).reduce((acc,[typeName,type])=>{
-        return {...acc,[typeName]:t.model()}
-    },{})
-    const MPin = t.compose('Pin',t.model('',{
-        type: t.string,
+  const pinModelOfType = (typeName: string): ((side: 'in' | 'out') => IAnyModelType) => {
+    const MPin = t.compose(
+      `pin<${typeName}>`,
+      MWithId,
+      t.model('', {
+        type: typeName,
         name: t.string,
-        value:t.late(()=>MPinValue)
-    }),MWithId)
-
-    const MCommonBlock=t.model('commonBlock',{
-
+        block: t.maybe(t.reference(t.late(() => MBlock))),
+      })
+    )
+    const MPinStatus = t.model('pin status', {
+      isValid: t.boolean,
+      reason: t.maybe(t.string),
     })
-    return {
-        block:(blockSpec)=>{
-            return MBlock.create({})
+    const MInPin = t
+      .compose(
+        `inputPin<${typeName}>`,
+        MPin,
+        t.model('', {
+          side: 'in',
+          toOutPin: t.maybe(t.reference(t.late(() => MOutPin))),
+        })
+      )
+      .actions((self) => {
+        return {
+          connect: (toOutPin: Instance<typeof MOutPin>): void => {
+            self.toOutPin = toOutPin
+            toOutPin.connect(self)
+          },
+          disconnect: (): void => {
+            !!self.toOutPin && self.toOutPin.disconnect()
+            delete self.toOutPin
+          },
         }
+      })
+      .view((self) => {
+        const typeName = self.typeName
+        const castOutputValue = () => {}
+
+        return {
+          get status() {
+            if (!self.toOutPin)
+              return MPinStatus.create({
+                isValid: false,
+                reason: 'not connected',
+              })
+            if (!self.toOutPin.status.isValid)
+              return MPinStatus.create({
+                isValid: false,
+                reason: `connected output pin invalid: ${self.toOutPin.status.reason}`,
+              })
+            return MPinStatus.create({
+              isValid: true,
+            })
+          },
+        }
+      })
+
+    const MOutPin = t
+      .compose(
+        `outputPin<${typeName}>`,
+        MWithId,
+        t.model('', {
+          side: 'out',
+          value: valueTypes[typeName],
+          toInPins: t.maybe(t.array(t.maybe(t.reference(MInPin)))),
+          status: MPinStatus,
+        })
+      )
+      .actions((self) => {
+        const { status } = self
+        return {
+          setInvalid: (reason?: string) => {
+            status.isValid = false
+            status.reason = `invalid: ${reason}`
+          },
+          setValid: () => {
+            status.isValid = true
+            status.reason = ''
+          },
+          connect: (toInPin: Instance<typeof MInPin>) => {},
+          disconnect: () => {},
+          setValue: () => {},
+        }
+      })
+
+    return (side: string): IAnyModelType => {
+      if (side === 'in') {
+        return
+      }
     }
+  }
+  const pinModels = Object.entries(pinTypes).reduce((acc, [typeName, type]) => {
+    return { ...acc, [typeName]: t.model() }
+  }, {})
+  const MPin = t.compose(
+    'Pin',
+    t.model('', {
+      type: t.string,
+      name: t.string,
+      value: t.late(() => MPinValue),
+    }),
+    MWithId
+  )
+
+  const MCommonBlock = t.model('commonBlock', {})
+  return {
+    block: (blockSpec) => {
+      return MBlock.create({})
+    },
+  }
 }
 
 export default logicEngine
 
 /**************/
 
-export const tInputPin = t.compose('InPin', t.model({
-        side: 'in',
+export const tInputPin = t
+  .compose(
+    'InPin',
+    t.model({
+      side: 'in',
     }),
     tPin
   )

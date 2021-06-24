@@ -1,5 +1,5 @@
 import { types as t } from 'mobx-state-tree'
-import { assert, toArray } from './utils'
+import { assert, toArray } from '../utils'
 import { vClass, Serializable, Shape, stringType, Union, Refine } from './types'
 
 interface entry {

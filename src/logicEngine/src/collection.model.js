@@ -1,7 +1,7 @@
 'use strict'
 exports.__esModule = true
 var mobx_state_tree_1 = require('mobx-state-tree')
-var utils_1 = require('./utils')
+var utils_1 = require('../utils')
 exports.registryModel = function (valueType) {
   var tEntry = utils_1.tRainbowArray(mobx_state_tree_1.types.string, valueType)
   return utils_1
