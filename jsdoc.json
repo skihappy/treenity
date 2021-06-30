@@ -1,0 +1,23 @@
+{
+  "tags": {
+    "allowUnknownTags": ["optional"]
+  },
+  "source": {
+    "includePattern": "\\.(jsx|js|ts|tsx)$",
+    "excludePattern": "(node_modules/|docs)"
+  },
+  "plugins": [
+    "plugins/markdown",
+    "jsdoc-mermaid"
+  ],
+  "tags": {
+    "allowUnknownTags": true
+  },
+  "opts": {
+    "encoding": "utf8",
+    "destination": "./docs/",
+    "recurse": true,
+    "verbose": true,
+    "template": "./node_modules/clean-jsdoc-theme"
+  }
+}
