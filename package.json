@@ -14,7 +14,8 @@
     "serve-client": "parcel serve --port 3101 src/client/index.html --out-dir dist/client",
     "jest": "jest --forceExit",
     "lg": "parcel watch --target node --public-url ./src/logicEngine/test.ts",
-    "docs": "jsdoc ./src/mods/logicEngine/jsDoc.test -c jsdoc.json -d docs"
+    "docs-build": "fliegdoc build",
+    "docs-serve": "fliegdoc serve"
   },
   "directories": {
     "lib": "src",
@@ -72,6 +73,7 @@
     "socket.io": "^2.3.0",
     "socket.io-client": "^2.3.0",
     "ts-node": "^9.1.1",
+    "typedoc": "^0.21.2",
     "vm2": "^3.9.2",
     "winston": "^3.3.3"
   },

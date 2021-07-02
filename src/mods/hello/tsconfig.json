@@ -1,14 +1,14 @@
+
 {
     "compilerOptions": {
-        "compilerOptions": {
-            "target": "es6"
-        },
+        "target": "es6",
         "module": "commonjs",
         "strict": true,
         "noImplicitAny": false,
         "outDir": "dist",
         "rootDir": "./src",
         "jsx": "react",
+        "checkJs": true,
         "allowSyntheticDefaultImports": true,
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,

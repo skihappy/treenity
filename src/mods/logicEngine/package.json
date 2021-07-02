@@ -2,7 +2,7 @@
   "name": "logicEngine",
   "version": "1.0.0",
   "description": "",
-  "main": "test.ts",
+  "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "docs": "./node_modules/.bin/jsdoc -c ../../jsdoc.json"
