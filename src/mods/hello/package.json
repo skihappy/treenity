@@ -1,11 +1,18 @@
 {
   "name": "hello",
   "version": "1.0.0",
-  "description": "",
+  "description": "read me, bro",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "handlebars": "^4.7.7",
+    "lodash": "^4.17.21"
+  },
+  "directories": {
+    "doc": "docs"
+  }
 }
