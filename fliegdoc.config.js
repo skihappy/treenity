@@ -4,9 +4,9 @@ module.exports = {
   externalLinks: ['https://github.com/skihappy/treenity/tree/logicEngine'],
   modules: [
     {
-      package: './src/mods/logicEngine/package.json',
+      package: './src1/mods/logicEngine/package.json',
       tsconfig: './tsconfig.json',
-      mainFile: './src/mods/logicEngine/src/index.ts',
+      mainFile: './src1/mods/logicEngine/src1/index.ts',
     },
   ],
 }

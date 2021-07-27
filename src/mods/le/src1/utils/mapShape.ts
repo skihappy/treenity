@@ -1,4 +1,4 @@
-import {reduceShape} from './reduceShape'
+import { reduceShape } from './reduceShape'
 
 interface mapper {
   (prop: any, propName: string): any

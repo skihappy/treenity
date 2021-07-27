@@ -1,5 +1,5 @@
 import * as z from 'zod';
-import { ZodError } from '../../../lib/zod/src';
+import { ZodError } from '../../../lib/zod/src1';
 
 declare module zod {
   export interface ZodType<Type, TypeDef> {

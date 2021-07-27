@@ -1,7 +1,9 @@
 import { ModelPropertiesDeclaration, IAnyType, types as t, IAnyModelType } from 'mobx-state-tree'
 const _ = require('lodash')
 export * from './vm'
+export * from './mstTypes/funcTypes'
 export * from './logicError.class'
+export * from './funcFactories'
 import { LogicError } from './logicError.class'
 export * from './reduceShape'
 export * from './mapShape'

@@ -128,9 +128,8 @@ export interface cast<toValue = any> {
 }
 
 /**
- * flavor wrapped cast.
- * a factory that picks up flavor, and spits out a cast
- * used in building flavor factories
+ * flavor wrapped cast. a factory that picks up flavor, and spits out a cast
+ * used when building flavor factories
  * @typeParam toValue destination value, to be casted to
  * @typeParam flavorProps the props of the flavor factory, that cooked the type so flavored
  */
@@ -140,7 +139,7 @@ export interface castFactory<toValue = any, flavorProps extends object = object>
 
 /**
  * an array
- * used in building flavor factories
+ * used when building flavor factories
  * @typeParam toValue destination value, to be casted to
  * @typeParam flavorProps the props of the flavor factory, that cooked the type so flavored
  */
@@ -151,7 +150,7 @@ export type casts<toValue> = cast<toValue>[]
 /**
  * vClass constructor props
  * @typeParam flavorProps the props of the flavor factory that cooked the type so flavored
- * @typeProp value
+ * @typeParam value
  */
 interface vClass_props<value = any, flavorProps extends object = object> {
   create?: create<value>
@@ -423,16 +422,32 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
   return vTypeFactory
 }
 
+/**
+ * Options parameter for {@link createV}
+ * @typeParam value createV creates type, that asserts this value
+ */
 export interface createVOptions<value = any> {
+  /**
+   * used as both typeName and {@link flavor.flavorName} of new type
+   */
   typeName?: string
+  /**
+   * possible casts.
+   * {@link vClass.create} will cast automaticly. {@link vClass.is} will return false on anything but type itself.
+   */
   casts?: casts<value>
+  /**
+   * must return value of the type
+   * use custom create in composed types
+   */
   create?: create<value>
 }
 
 /**
- * instantiates a vType
- * @param assert
- * @param options
+ * type factory
+ * @param assert asserts the type.
+ * @param options {@link createVOptions}
+ * @typeParam value static type of new type.
  */
 export const createV = <value = any>(assert: assert<value>, options?: createVOptions<value>): vClass<value> => {
   const { typeName, casts, create } = deepDefault(options || {}, {
@@ -444,48 +459,113 @@ export const createV = <value = any>(assert: assert<value>, options?: createVOpt
   return new vClass<value>({ assert, casts, create, flavor: { typeName, flavorName: typeName, props: {} } })
 }
 
+/**
+ * type asserting {@link vClass}, vType
+ */
 export const v = <vClass<object, any>>(
   createV((value) => assert(value instanceof vClass, `not logic type`), { typeName: 'v' })
 )
 
+/**
+ * type asserting any value
+ */
 export const any = createV(() => {})
 
+/**
+ * @internal
+ * @param type
+ */
 const vTypeof = <value = any>(type: string): vClass<value> =>
   createV<value>((value) => typeof value === type, {
     typeName: type,
   })
 
+/**
+ * type asserting string
+ */
 export const stringType = vTypeof<string>('string')
+/**
+ * type asserting any function
+ */
 export const functionType = vTypeof<() => any>('function')
+/**
+ * type asserting number
+ */
 export const numberType = vTypeof<number>('number')
+/**
+ * type asserting undefined
+ */
 export const undefinedType = vTypeof<undefined>('undefined')
+/**
+ * type asserting object
+ */
 export const objectType = vTypeof<object>('object')
+/**
+ * type asserting boolean
+ */
 export const booleanType = vTypeof<boolean>('boolean')
+/**
+ * type asserting bigint
+ */
 export const bigintType = vTypeof<bigint>('bigint')
+/**
+ * type asserting symbol
+ */
 export const symbolType = vTypeof<symbol>('symbol')
 
+/**
+ * props of literal type factory
+ */
 export interface literalFlavorProps {
+  /**
+   * literal value
+   */
   value: any
 }
 
+/**
+ * literal type factory
+ * {@see literalFlavorProps}
+ */
 export const Literal = createVTypeFactory<any, literalFlavorProps>({
   assert: ({ props: { value: literalValue } }) => (value) => assert(value === literalValue, `must be ${literalValue}`),
   flavorName: 'literal',
 })
 
+/**
+ * props of late type factory
+ */
 export interface lateFlavorProps {
+  /**
+   * a func returning vType
+   */
   typeFactory: () => vClass<any, any>
 }
 
+/**
+ * Late type factory
+ * {@see literalFlavorProps}
+ */
 export const Late = createVTypeFactory<any, lateFlavorProps>({
   assert: ({ props: { typeFactory } }) => (value) => assert(typeFactory().is(value)),
   create: ({ props: { typeFactory } }) => (value) => typeFactory().create(value),
   flavorName: 'late',
 })
 
+/**
+ * props of Maybe type factory
+ */
 export interface maybeFlavorProps {
+  /**
+   * type to be converted to maybe
+   */
   type: vClass
 }
+
+/**
+ * Maybe type factory
+ * Converts any type into nullable type. Makes sense only as a prop of an object
+ */
 export const Maybe = createVTypeFactory<any, maybeFlavorProps>({
   assert: ({ props: { type } }) => (value) => {
     if (typeof value === 'undefined') return
@@ -502,10 +582,24 @@ export const Maybe = createVTypeFactory<any, maybeFlavorProps>({
   flavorName: 'maybe',
 })
 
+/**
+ * Props of Optional type factory
+ */
 export interface optionalFlavorProps {
+  /**
+   * type to be converted into optional
+   */
   type: vClass<any, any>
+  /**
+   * default value. Must be of correct type
+   */
   defaultValue: any
 }
+
+/**
+ * Optional type factory
+ * Converts any type into defaulted value. If value is falsy, default value is used
+ */
 export const Optional = createVTypeFactory<any, optionalFlavorProps>({
   flavorPropsConstraint: ({ props: { defaultValue, type } }) => {
     assert(type.flavorName === 'maybe', 'optional: target flavor can not be maybe')
@@ -522,12 +616,30 @@ export const Optional = createVTypeFactory<any, optionalFlavorProps>({
   flavorName: 'optional',
 })
 
+/**
+ * Void type
+ * Simply asserts undefined
+ */
 const vVoid = createV((value) => assert(typeof value === 'undefined'), { typeName: 'void' })
 
+/**
+ * props for func type factory
+ */
 export interface funcFlavorProps {
+  /**
+   * array of argument types
+   */
   args?: vClass<any, any>[]
+  /**
+   * type of returned value
+   */
   result?: vClass<any, any>
 }
+
+/**
+ * function type factory
+ * creates a typechecked function
+ */
 export const Func = createVTypeFactory<(...[]) => any, funcFlavorProps>({
   defaultFlavorProps: { args: [], result: any },
   assert: () => (func) => assert(typeof func === 'function', `not function type`),

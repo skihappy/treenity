@@ -1,7 +1,0 @@
-{
-  "casting": {
-    "title": "Transforming between vTypes",
-    "description": "Describes behaviour of type transforms - multi step casting thru the transform path",
-    }
-  }
-}
