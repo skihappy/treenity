@@ -22,13 +22,10 @@ import {
   objectType,
   createVTypeFactory,
   flavor,
-  parametrizedFlavor,
-  createV,
-  ArrayType
+  ArrayType, vClass, Dict, v, functionType
 } from '../types'
 import { logicEngineModel } from '../logicEngine.model'
 import { Instance } from 'mobx-state-tree'
-import { assert } from '../utils'
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -160,3 +157,47 @@ export const vParticle=createVTypeFactory<particle,particleFlavorProps>({
   create:()=>particle=>vUnflavoredParticle.create(particle)
 })
 
+/**
+ * parametrized particle composition
+ * [[vParametrizedParticleComposition]]
+ * @category particle
+ */
+export interface parametrizedParticleComposition {
+  props:{
+    [propName:string]:particle
+  },
+  composition:(props:object)=>particleComposition
+}
+
+/**
+ * Particle spec
+ * This is how a particle is specified when adding into a group
+ * It can be either a parametrized or simple composition
+ * @category particle
+ */
+export type particleSpec=parametrizedParticleComposition | particleComposition
+
+/**
+ * Parametrized particle composition vType factory
+ * Particles of a group can be simple compositions or composition factories
+ * Parametrized composition takes props and produces particle composition, of its flavor. A distinct
+ * typeName can be given to identify particles of same flavorName
+ * @param props dict of type particles, defining types of props of the composition factory
+ * @param composition function, composition factory
+ * @category particle
+ */
+export const vParametrizedParticleComposition=Shape({
+  propTypes:{
+    props:Dict({type:vParticle({flavor:'type'})}),
+    composition:functionType
+  }
+})
+
+/**
+ * Particle spec
+ * Each particle of a group is specified by this particle spec. This is what is used for insert operation, into group.
+ * Particles can be [simple compositions](particleComposition) or [parametrized composition](parametrizedParticleComposition),
+ * which are functions spitting out composition after given some props. The prop types are defined by [particles](particle) of type group.
+ * @category particle
+ */
+export const vParticleSpec=Union({types:[vParticleComposition,vParametrizedParticleComposition]})
