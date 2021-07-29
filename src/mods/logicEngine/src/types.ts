@@ -20,7 +20,7 @@ export type anyFunc = (any) => any
  * @prop flavor wrapping flavor
  */
 interface funcFactory<func extends anyFunc = anyFunc, flavorProps extends object = object> {
-  (flavor: componentFlavor<flavorProps>): func
+  (flavor:parametrizedFlavor<flavorProps>): func
 }
 
 /**
@@ -82,7 +82,7 @@ export type elementFlavor<flavorName extends string = string> = flavorName
  * @typeParam flavorName literal string
  * @typeParam flavorProps the props of the flavor factory that cooked the type so flavored
  */
-export interface componentFlavor<flavorProps extends object = object, flavorName extends string = string> {
+export interface parametrizedFlavor<flavorProps extends object = object, flavorName extends string = string> {
   flavorName: elementFlavor<flavorName>
   /**
    * complex flavors have another optional classifier, to tell the products of factory apart
@@ -106,7 +106,7 @@ export interface componentFlavor<flavorProps extends object = object, flavorName
  */
 export type flavor<flavorProps extends object = object, flavorName extends string = string> =
   | elementFlavor<flavorName>
-  | componentFlavor<flavorProps, flavorName>
+  | parametrizedFlavor<flavorProps, flavorName>
 
 /**
  * describes a cast, between two types.
@@ -171,7 +171,7 @@ export class vClass<value = any, flavorProps extends object = object> {
    */
   public readonly flavorName: string
   /**
-   * {@link componentFlavor.props}
+   * {@link parametrizedFlavor.props}
    */
   public readonly flavorProps: flavorProps
   public readonly flavor: flavor<flavorProps>
@@ -191,7 +191,7 @@ export class vClass<value = any, flavorProps extends object = object> {
     this.flavor = flavor as flavor<flavorProps>
     // @ts-ignore
     const { flavorName, typeName = flavorName, props: flavorProps } =
-      typeof flavor === 'string' ? { flavorName: flavor as elementFlavor } : (flavor as componentFlavor<flavorProps>)
+      typeof flavor === 'string' ? { flavorName: flavor as elementFlavor } : (flavor as parametrizedFlavor<flavorProps>)
     this.typeName = typeName
     this.flavorName = flavorName
     this.flavorProps = flavorProps || {}
@@ -358,7 +358,7 @@ interface createVTypeFactory_Props<value = any, flavorProps extends object = obj
    * expressed by typescript type
    * @param flavor flavor of new type, produced by type factory, the one we are constructing
    */
-  flavorPropsConstraint?: (flavor: componentFlavor<flavorProps>) => void
+  flavorPropsConstraint?: (flavor: parametrizedFlavor<flavorProps>) => void
   /**
    * array of flavor wrapped casts. Each cast is conditioned by flavor
    */
@@ -400,7 +400,7 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
     create: () => (value) => value,
   })
 
-  const vTypeFactory: vTypeFactory<value, flavorProps> = (flavorProps, typeName?) => {
+  return  (flavorProps, typeName?) => {
     const defaultedFlavorProps = deepDefault(flavorProps, defaultFlavorProps)
     const flavor = {
       typeName,
@@ -417,8 +417,6 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
       casts: castFactories.map((castFactory) => castFactory(flavor)),
     })
   }
-
-  return vTypeFactory
 }
 
 /**
@@ -427,7 +425,7 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
  */
 export interface createVOptions<value = any> {
   /**
-   * used as both typeName and {@link flavor.flavorName} of new type
+   * used as both typeName and [[flavor.flavorName]] of new type
    */
   typeName?: string
   /**
@@ -767,7 +765,7 @@ export const Shape = createVTypeFactory<object, shapeFlavorProps>({
 
       const errMessages = Object.entries(propTypes).map(([propName, propType]) => {
         try {
-          propType.assert(shape[propName])
+          (propType as vClass).assert(shape[propName])
         } catch (e) {
           return e.message
         }

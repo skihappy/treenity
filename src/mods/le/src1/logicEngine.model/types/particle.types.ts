@@ -27,7 +27,7 @@ export type componentParticleFlavor<flavorProps extends object = object> = compo
   flavorProps,
   particleTransformPath
 >
-export const vParticleFlavor = Shape<componentParticleFlavor>({
+export const vParticleFlavor = Shape({
   propTypes: {
     typeName: stringType.defaultsTo(''),
     flavorName: vParticleTransformPath,
