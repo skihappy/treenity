@@ -1,6 +1,9 @@
-import { types as t } from 'mobx-state-tree'
-import { assert, toArray } from '../utils'
-import { vClass, Serializable, Shape, stringType, Union, Refine } from '../types'
+import {Instance, types as t} from 'mobx-state-tree'
+import {assert, mapShape, toArray, vm} from '../utils'
+import { vClass, Shape, stringType, Union, Refine } from '../types'
+import type {particleFlavor, particleSpec, particle, particleComposition} from './particle.types'
+import {vParticleComposition, vParticleFlavor} from "./particle.types"
+import {particleClass as particleClassFactory} from './particle.class'
 
 interface entry {
     name: string
@@ -12,7 +15,6 @@ const tScriptedEntry = t.model('scriptedEntry', {
     value: t.string,
 })
 
-const vScriptedEntry = Serializable({ mstType: tScriptedEntry }, 'scriptedEntry')
 
 const findIn = (entries: entry[]) => (name): entry | undefined =>
     entries.find(({ name: entryName }: entry) => name === entryName)
@@ -26,7 +28,9 @@ const deleteIn = (entries: entry[]) => (name): boolean => {
     return true
 }
 
-export const collectionModel = (vm) => (vNakedValue: vClass) => {
+export const particleGroupModel = (logicEngine:Instance<logicEngineModel>)=> (law:particleGroupLaw) => {
+    const particleClass=particleClassFactory(law)
+    const {groupName}=law
     const vScriptedValue = Refine(
         {
             type: stringType,
@@ -52,19 +56,19 @@ export const collectionModel = (vm) => (vNakedValue: vClass) => {
 
     return t
         .model('collectionModel', {
-            name: t.string,
+            name: t.literal(groupName),
             persistentEntries: t.optional(t.array(tScriptedEntry), []),
         })
         .views((self) => ({
             assert(guard: boolean, errMessage?: string | string[]) {
-                assert(guard, [`collection ${self.name}`, ...toArray(errMessage)])
+                assert(guard, [`group ${self.name}`, ...toArray(errMessage)])
             },
         }))
         .actions((self) => {
             const volatileEntries: entry[] = []
 
             const entries = (which: 'persistent' | 'volatile' | entry): entry[] => {
-                return which === ('persistent' || vScriptedEntry.is(which)) ? self.persistentEntries : volatileEntries
+                return which === ('persistent' || tScriptedEntry.is(which)) ? self.persistentEntries : volatileEntries
             }
 
             const verify = (func: () => any, errMessage?: string | string[]) => {
@@ -74,9 +78,47 @@ export const collectionModel = (vm) => (vNakedValue: vClass) => {
                     self.assert(false, errMessage)
                 }
             }
-
             //implements crud
             return {
+                read(particle:particle,errMsg:string='') {
+                    if(vParticleComposition.is(particle))return new particleClass(particle as particleComposition)
+                    const { typeName,flavorName, props: flavorProps } =
+                        vParticleFlavor.create(flavor,`bad reference, group ${self.name}`)
+
+                    const entry =
+                        findIn(entries('persistent'))(flavorName) ||
+                        findIn(entries('volatile'))(flavorName)
+
+                    self.assert(!!entry, [`read: can not find flavor ${flavorName}`, errMsg])
+
+                    const vFlavorProps=Shape({
+                        propTypes:mapShape(flavorProps,(prop,propName)=>logicEngine.groups.types.read())
+                    })
+                    const registryValue = self.read(componentName)
+                    const componentSpec = vElementSpec.is(registryValue)
+                        ? { component: () => registryValue, props: {} }
+                        : registryValue
+
+                    const componentPropTypes = mapShape(componentSpec.props, (typeRef) =>
+                        logicEngine.registries.types.read(typeRef)
+                    )
+                    const vComponentProps = Shape(
+                        {
+                            propTypes: componentPropTypes,
+                        },
+                        `props of ${componentName} of ${registryName}`
+                    )
+
+                    const render = Func(
+                        {
+                            args: [vComponentProps],
+                            result: vElementSpec,
+                        },
+                        `${componentName} component of ${registryName} registry`
+                    ).create(componentSpec.component)(componentProps)
+
+                    return new elementClass(render(componentProps))
+                },
                 read(name: string, errMsg: string = ''): any {
                     const entry = findIn(entries('persistent')) || findIn(entries('volatile'))
                     self.assert(!!entry, [`read: can not find entry ${name}`, errMsg])

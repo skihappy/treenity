@@ -246,7 +246,7 @@ export class vClass<value = any, flavorProps extends object = object> {
    * @param value
    * @param errMessage prefixes assert error message
    */
-  create(value: value, errMessage: string[] | string = ''): value {
+  create(value: any, errMessage: string[] | string = ''): value {
     const castEntry = this.casts.find(({ fromType }) => fromType.is(value))
 
     if (castEntry) {
@@ -744,7 +744,7 @@ export interface shapeFlavorProps {
  * {@see shapeFlavorProps}
  * @category vType factory
  */
-export const Shape = createVTypeFactory<object, shapeFlavorProps>({
+export const Shape = createVTypeFactory<{[key:string]:any}, shapeFlavorProps>({
   defaultFlavorProps: {
     propTypes: {},
     isStrict: true,

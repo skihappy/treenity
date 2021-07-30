@@ -12,7 +12,7 @@
  * particle group laws. Dot notation is used to define the path.
  * Particles are referenced by their flavor. In other words, flavor completely identifies a particle within logic system
  *
- * @module
+ * @module particleTypes
  */
 
 import {
