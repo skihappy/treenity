@@ -26,6 +26,7 @@ import {
 } from '../types'
 import { logicEngineModel } from '../logicEngine.model'
 import { Instance } from 'mobx-state-tree'
+import {assert} from "../utils";
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -152,8 +153,20 @@ export interface particleFlavorProps {
  */
 export const vParticle=createVTypeFactory<particle,particleFlavorProps>({
   flavorName:'particle',
-  assert:({props:{flavor}})=>
-          particle=>vUnflavoredParticle.assert(particle,`bad particle reference of flavor=${flavor}`),
+  assert:({props:{flavor}})=>particle=> {
+    vUnflavoredParticle.assert(particle, `bad particle reference of flavor=${flavor}`)
+
+    const requiredTransformPath=vParticleFlavor.create(flavor).flavorName
+    const  particleFlavor=vParticleComposition.is(particle as object)
+        ?(particle as particleComposition).flavor
+        :particle as particleFlavor
+    const particleTransformPath=vParticleFlavor.create(particleFlavor).flavorName
+
+    assert(
+        particleTransformPath.split('.').include(requiredTransformPath.split('.')),
+        `bad transform path ${particleTransformPath}, must include ${requiredTransformPath}`
+    )
+  },
   create:()=>particle=>vUnflavoredParticle.create(particle)
 })
 
