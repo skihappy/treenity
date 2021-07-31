@@ -7,20 +7,23 @@
  * by exact sequence of steps.
  * @module
  */
-import type {particleComposition} from "./particle.types";
+import type {particleComposition,particle} from "./particle.types";
 import {vParticleFlavor} from "./particle.types";
 import {Instance} from "mobx-state-tree";
 import {logicEngineModel} from "../logicEngine.model";
 import {assert} from "../utils";
 import type {particleGroupLaw} from './particleGroupLaw.type'
+import {particleClass} from './particle.class'
 
 export const particleTransform= (logicEngine:Instance<logicEngineModel>)=>
-    (particleComposition:particleComposition,errMsg:string):particleComposition=>{
+    (particle:particle,errMsg:string=''):particleClass=>{
+    const particleComposition=vParticleFlavor.is
     const flavor=vParticleFlavor.create(particleComposition.flavor)
     const {flavorName:transformPath}=flavor
     const transformPathArr=transformPath.split('.')
+    const destinationGroupName=transformPathArr.reverse[0]
 
-    return transformPathArr.reduce((destinationComposition,fromGroupName,index)=>{
+    const destinationComposition= transformPathArr.reduce((destinationComposition,fromGroupName,index)=>{
         if(index===transformPathArr.length)return destinationComposition
 
         const findGroup=(name:string):particleGroupLaw=>{
@@ -34,4 +37,6 @@ export const particleTransform= (logicEngine:Instance<logicEngineModel>)=>
 
         return toGroupCompositionType.create(destinationComposition)
     },particleComposition)
+
+    return new particleClass(destinationGroupName)(destinationComposition)
 }

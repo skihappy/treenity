@@ -1,58 +1,69 @@
 import {Instance, types as t} from 'mobx-state-tree'
-import {assert, mapShape, toArray, vm} from '../utils'
-import { vClass, Shape, stringType, Union, Refine } from '../types'
+import {assert, LogicError, mapShape, toArray, vm} from '../utils'
+import {vClass, Shape, stringType, Union, Refine, Func} from '../types'
 import type {particleFlavor, particleSpec, particle, particleComposition} from './particle.types'
-import {vParticleComposition, vParticleFlavor} from "./particle.types"
+import {vParametrizedParticleComposition, vParticleComposition, vParticleFlavor, vParticleSpec} from "./particle.types"
 import {particleClass as particleClassFactory} from './particle.class'
+import {particleTransform} from "./particleTransform";
 
 interface entry {
-    name: string
-    value: any
+    flavorName: string
+    particleSpec: string | particleSpec
 }
 
 const tScriptedEntry = t.model('scriptedEntry', {
-    name: t.string,
-    value: t.string,
+    flavorName: t.string,
+    particleSpec: t.string,
 })
 
+const vScriptedEntry=Shape({
+    propTypes:{
+        flavorName: stringType,
+        particleSpec: stringType
+    }
+})
+
+const vParticleSpec=vParametrizedParticleComposition.setCasts([
+    {
+        castName:'particleComposition',
+        fromType:vParticleComposition,
+        cast:composition=>({composition:()=>composition})
+    }
+])
 
 const findIn = (entries: entry[]) => (name): entry | undefined =>
-    entries.find(({ name: entryName }: entry) => name === entryName)
+    entries.find(({ flavorName }: entry) => name === flavorName)
 
 const insertIn = (entries: entry[]) => (entry): number => entries.push(entry)
 
 const deleteIn = (entries: entry[]) => (name): boolean => {
-    const index = entries.findIndex(({ name: entryName }: entry) => name === entryName)
+    const index = entries.findIndex(({ flavorName }: entry) => name === flavorName)
     if (index < 0) return false
     entries.splice(index, 1)
     return true
 }
 
 export const particleGroupModel = (logicEngine:Instance<logicEngineModel>)=> (law:particleGroupLaw) => {
-    const particleClass=particleClassFactory(law)
-    const {groupName}=law
-    const vScriptedValue = Refine(
-        {
-            type: stringType,
-            refine: () => (script) => vNakedValue.assert(vm.run(script)),
-        },
-        'scriptedValue'
-    )
+    const {groupName,compositionType}=law
 
-    const vEntry = Shape(
-        {
-            propTypes: {
-                name: stringType,
-                value: Union({
-                    types: [vNakedValue, vScriptedValue],
-                }),
-            },
-            helpers: {
-                nakedValue: ({ name, value }) => (vScriptedValue.is(value) ? vm.run(vm.run(value as string)) : value),
-            },
-        },
-        'entry'
-    )
+    const vEntry=Shape({
+        propTypes:{
+            flavorName:stringType,
+            particleSpec:vParticleSpec,
+        }
+    }).setCasts([{
+        castName: 'script',
+        fromType: vScriptedEntry,
+        cast:(flavor)=>{
+            const {flavorName,particleSpec:script}=flavor
+            const vm=logicEngine.vm
+            try{
+                return {flavorName,particleSpec:vm.run(script)}
+            }catch(e){
+                throw new LogicError(`bad particleSpec script for flavor=${flavor}`,e)
+            }
+        }
+    }])
 
     return t
         .model('collectionModel', {
@@ -81,9 +92,10 @@ export const particleGroupModel = (logicEngine:Instance<logicEngineModel>)=> (la
             //implements crud
             return {
                 read(particle:particle,errMsg:string='') {
-                    if(vParticleComposition.is(particle))return new particleClass(particle as particleComposition)
-                    const { typeName,flavorName, props: flavorProps } =
-                        vParticleFlavor.create(flavor,`bad reference, group ${self.name}`)
+                    if(vParticleComposition.is(particle as object))
+                        return particleTransform(logicEngine)(particle,`read of group ${groupName}`)
+                    const particleFlavor = vParticleFlavor.create(particle as particleFlavor,`bad reference, group ${groupName}`)
+                    const { typeName,flavorName, props: flavorProps }=particleFlavor
 
                     const entry =
                         findIn(entries('persistent'))(flavorName) ||
@@ -91,39 +103,27 @@ export const particleGroupModel = (logicEngine:Instance<logicEngineModel>)=> (la
 
                     self.assert(!!entry, [`read: can not find flavor ${flavorName}`, errMsg])
 
-                    const vFlavorProps=Shape({
-                        propTypes:mapShape(flavorProps,(prop,propName)=>logicEngine.groups.types.read())
+                    const {particleSpec:{props:flavorPropTypes,composition:compositionFactory}}=
+                        vEntry.create(entry,`read bad entry=${entry}`)
+
+                    const vFlavorPropsTypes=Shape({
+                        propTypes:mapShape(
+                            flavorPropTypes,
+                            (propTypeParticle,propName)=>logicEngine.groups.types.read(
+                                propTypeParticle,
+                                `reading flavor=${particleFlavor}`
+                            )
+                        )
                     })
-                    const registryValue = self.read(componentName)
-                    const componentSpec = vElementSpec.is(registryValue)
-                        ? { component: () => registryValue, props: {} }
-                        : registryValue
 
-                    const componentPropTypes = mapShape(componentSpec.props, (typeRef) =>
-                        logicEngine.registries.types.read(typeRef)
-                    )
-                    const vComponentProps = Shape(
-                        {
-                            propTypes: componentPropTypes,
-                        },
-                        `props of ${componentName} of ${registryName}`
-                    )
+                    const composition=Func({
+                        args:[vFlavorPropsTypes],
+                        result:compositionType
+                    }).create(compositionFactory)(flavorProps,`reading flavor=${particleFlavor}`)
 
-                    const render = Func(
-                        {
-                            args: [vComponentProps],
-                            result: vElementSpec,
-                        },
-                        `${componentName} component of ${registryName} registry`
-                    ).create(componentSpec.component)(componentProps)
-
-                    return new elementClass(render(componentProps))
+                    return particleTransform(composition`)
                 },
-                read(name: string, errMsg: string = ''): any {
-                    const entry = findIn(entries('persistent')) || findIn(entries('volatile'))
-                    self.assert(!!entry, [`read: can not find entry ${name}`, errMsg])
-                    return vEntry.create(entry, errMsg).nakedValue
-                },
+
 
                 upsert(entry: entry, errMsg: string = '') {
                     verify(() => vEntry.assert(entry), ['upsert:  bad entry', errMsg])
