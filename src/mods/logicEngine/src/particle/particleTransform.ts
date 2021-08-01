@@ -7,36 +7,69 @@
  * by exact sequence of steps.
  * @module
  */
-import type {particleComposition,particle} from "./particle.types";
-import {vParticleFlavor} from "./particle.types";
-import {Instance} from "mobx-state-tree";
-import {logicEngineModel} from "../logicEngine.model";
-import {assert} from "../utils";
-import type {particleGroupLaw} from './particleGroupLaw.type'
-import {particleClass} from './particle.class'
+import type { particleComposition, particle } from './particle.types'
+import { vParticleComposition, vParticleFlavor } from './particle.types'
+import { Instance } from 'mobx-state-tree'
+import { logicEngineModel } from '../logicEngine.model'
+import { assert } from '../utils'
+import type { particleGroupLaw } from './particleGroupLaw.type'
+import { particleClass } from './particle.class'
 
-export const particleTransform= (logicEngine:Instance<logicEngineModel>)=>
-    (particle:particle,errMsg:string=''):particleClass=>{
-    const particleComposition=vParticleFlavor.is
-    const flavor=vParticleFlavor.create(particleComposition.flavor)
-    const {flavorName:transformPath}=flavor
-    const transformPathArr=transformPath.split('.')
-    const destinationGroupName=transformPathArr.reverse[0]
+export const particleTransform = (logicEngine: Instance<logicEngineModel>) => (
+  particle: particle,
+  errMsg: string | string[] = ['']
+): particleClass => {
+  const localErrMsg = (transformPath: string[]) => [errMsg, `invalid transform ${transformPath}`]
 
-    const destinationComposition= transformPathArr.reduce((destinationComposition,fromGroupName,index)=>{
-        if(index===transformPathArr.length)return destinationComposition
+  const transform = (
+    sourceFlavorName: string,
+    sourceGroupName: string,
+    transformPath: string[],
+    sourceComposition: particleComposition,
+    errMsg
+  ): particleClass => {
+    const targetComposition = transformPath.reduce((targetComposition, sourceGroupName, index) => {
+      if (index === transformPath.length) return targetComposition
 
-        const findGroup=(name:string):particleGroupLaw=>{
-            const group=logicEngine.groups[name]
-            assert(!!group,[`invalid transform ${transformPath}, group ${name} does not exist`,errMsg])
-            return group.law
-        }
+      const toGroup = transformPath[index + 1]
+      const toGroupCompositionType = logicEngine.group(toGroup, errMsg).law.compositionType
 
-        const toGroupCompositionType=findGroup(transformPathArr[index+1]).compositionType
-        findGroup(fromGroupName).compositionType
+      return toGroupCompositionType.create(targetComposition, errMsg)
+    }, sourceComposition)
 
-        return toGroupCompositionType.create(destinationComposition)
-    },particleComposition)
+    //@ts-ignore
+    targetComposition.flavor.flavorName = [
+      ...sourceFlavorName,
+      sourceGroupName,
+      ...transformPath,
+      //@ts-ignore
+      ...sourceComposition.flavor.flavorName,
+    ]
+    const targetGroupName = transformPath.reverse()[0]
+    return new particleClass(targetGroupName)(targetComposition)
+  }
 
-    return new particleClass(destinationGroupName)(destinationComposition)
+  if (vParticleFlavor.is(particle as object)) {
+    const { flavorName } = vParticleFlavor.create(particle)
+    const [sourceFlavorName, sourceGroupName, ...transformPath] = flavorName
+
+    const sourceFlavor = Object.assign(Object.create(particle as object), {
+      flavorName: [sourceFlavorName, sourceGroupName],
+    })
+
+    const sourceComposition = logicEngine.read(sourceFlavor, errMsg).composition
+    return transform(sourceFlavorName, sourceGroupName, transformPath, sourceComposition, localErrMsg(flavorName))
+  }
+
+  const {
+    flavor: { flavorName },
+  } = vParticleComposition.create(particle)
+  const [sourceFlavorName, sourceGroupName, ...transformPath] = flavorName
+  return transform(
+    sourceFlavorName,
+    sourceGroupName,
+    transformPath,
+    particle as particleComposition,
+    localErrMsg(flavorName)
+  )
 }
