@@ -1,7 +1,7 @@
 import { mapShape } from './mapShape'
 import { assert, typeOf } from './index'
 
-//handles anything but map. Goes as deep as default goes.  Throws on type mismatch
+//handles anything but map. Goes as deepPick as default goes.  Throws on type mismatch
 export const deepDefault = (value, defaultValue, errMessage: string = '') => {
   const defaulted = (value, defaultValue, path: string[] = []) => {
     const deepErrMessage = (valueType: string, defaultType: string) => [

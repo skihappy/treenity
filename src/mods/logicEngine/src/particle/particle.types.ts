@@ -22,11 +22,15 @@ import {
   objectType,
   createVTypeFactory,
   flavor,
-  ArrayType, vClass, Dict, v, functionType
+  ArrayType,
+  vClass,
+  Dict,
+  v,
+  functionType, complexFlavor, parametrizedFlavor, simpleFlavor,
 } from '../types'
 import { logicEngineModel } from '../logicEngine.model'
 import { Instance } from 'mobx-state-tree'
-import {assert} from "../utils";
+import { assert } from '../utils'
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -45,12 +49,12 @@ export type particleTransformPath = string[] | string
  * @remark a string name will be cast into string array
  * @category particle
  */
-export const vParticleTransformPath=ArrayType({type:stringType}).setCasts([
+export const vParticleTransformPath = ArrayType({ type: stringType }).setCasts([
   {
-    castName:'string',
-    fromType:stringType,
-    cast:string=>[string]
-  }
+    castName: 'string',
+    fromType: stringType,
+    cast: (string) => [string],
+  },
 ])
 
 /**
@@ -60,7 +64,36 @@ export const vParticleTransformPath=ArrayType({type:stringType}).setCasts([
  * @typeParam flavorProps props of parametrized flavor
  * @category particle
  */
-export type particleFlavor<flavorProps extends object = object>=flavor<flavorProps,particleTransformPath>
+export interface complexParticleFlavor extends complexFlavor {
+  transform?:particleTransformPath
+}
+
+export const vComplexParticleFlavor=Shape({
+  propTypes:{
+    transform:vParticleTransformPath.maybe(),
+    flavorName:stringType.maybe(),
+    typeName:stringType.maybe()
+  },
+  isStrict:false
+})
+
+export const vParametrizedParticleFlavor=vComplexParticleFlavor.extend(({flavor})=>({
+  ...flavor,
+  props:{
+    ...flavor.props,
+    props:objectType
+  }
+}))
+
+export interface parametrizedParticleFlavor<flavorProps extends object=object> extends parametrizedFlavor<flavorProps> {
+  transform?:particleTransformPath
+
+}
+
+export type particleFlavor<flavorProps extends object=object>=
+    simpleFlavor |
+    complexParticleFlavor |
+    parametrizedParticleFlavor<flavorProps>
 
 /**
  * particle flavor vType
@@ -76,12 +109,13 @@ export type particleFlavor<flavorProps extends object = object>=flavor<flavorPro
 export const vParticleFlavor = Shape({
   propTypes: {
     typeName: stringType.defaultsTo(''),
-    flavorName: vParticleTransformPath,
-    props: objectType.defaultsTo({}),
+    flavorName: stringType,
+    transform:vParticleTransformPath.maybe(),
+    props: objectType.maybe(),
   },
 }).setCasts([
   {
-    castName: 'elementFlavor',
+    castName: 'elementFlavor'
     fromType: vParticleTransformPath,
     cast: (flavorName: particleTransformPath) => ({ flavorName, props: {} }),
   },
@@ -93,11 +127,11 @@ export const vParticleFlavor = Shape({
  * @typeParam flavorProps props of parametrized flavor
  * @category particle
  */
-export interface particleComposition<flavorProps extends object = object>{
+export interface particleComposition<flavorProps extends object = object> {
   /**
    * particle flavor
    */
-  flavor?:flavor<flavorProps>
+  flavor?:
 
   /**
    * any additional structure
@@ -115,22 +149,22 @@ export interface particleComposition<flavorProps extends object = object>{
  */
 export const vParticleComposition = Shape({
   propTypes: {
-    flavor:vParticleFlavor.maybe()
+    flavor: vParticleFlavor.maybe(),
   },
-  isStrict:false,
+  isStrict: false,
 })
 
 /**
  * particle
  * [[vParticle]]
  */
-export type particle=particleFlavor | particleComposition
+export type particle = particleFlavor | particleComposition
 
 /**
  * @ignore
  */
-const vUnflavoredParticle=Union({
-  types:[vParticleFlavor,vParticleComposition]
+const vUnflavoredParticle = Union({
+  types: [vParticleFlavor, vParticleComposition],
 })
 
 /**
@@ -140,7 +174,7 @@ export interface particleFlavorProps {
   /**
    * whatever specified in this flavor, will be enforced in particle compositions
    */
-  flavor:flavor
+  flavor: flavor
 }
 
 /**
@@ -153,23 +187,23 @@ export interface particleFlavorProps {
  * @remark particle types are of 'particle' flavor
  * @category particle
  */
-export const vParticle=createVTypeFactory<particle,particleFlavorProps>({
-  flavorName:'particle',
-  assert:({props:{flavor}})=>particle=> {
+export const vParticle = createVTypeFactory<particle, particleFlavorProps>({
+  flavorName: 'particle',
+  assert: ({ props: { flavor } }) => (particle) => {
     vUnflavoredParticle.assert(particle, `bad particle reference of flavor=${flavor}`)
 
-    const requiredTransformPath=vParticleFlavor.create(flavor).flavorName
-    const  particleFlavor=vParticleFlavor.is(particle as object)
-        ?particle as particleFlavor
-        :(particle as particleComposition).flavor
-    const particleTransformPath=vParticleFlavor.create(particleFlavor).flavorName
+    const requiredTransformPath = vParticleFlavor.create(flavor).flavorName
+    const particleFlavor = vParticleFlavor.is(particle as object)
+      ? (particle as particleFlavor)
+      : (particle as particleComposition).flavor
+    const particleTransformPath = vParticleFlavor.create(particleFlavor).flavorName
 
     assert(
-        particleTransformPath.split('.').include(requiredTransformPath.split('.')),
-        `bad transform path ${particleTransformPath}, must include ${requiredTransformPath}`
+      particleTransformPath.split('.').include(requiredTransformPath.split('.')),
+      `bad transform path ${particleTransformPath}, must include ${requiredTransformPath}`
     )
   },
-  create:()=>particle=>vUnflavoredParticle.create(particle)
+  create: () => (particle) => vUnflavoredParticle.create(particle),
 })
 
 /**
@@ -182,26 +216,27 @@ export interface parametrizedParticleSpec {
    * lists types of props for the composition factory
    * each prop type is a reference to a particle of type group, a type composition
    */
-  props:{
-    [propName:string]:particle
-  },
+  props: {
+    [propName: string]: particle
+  }
   /**
    * particle composition factory. Takes props, returns particle composition. Its missing
    * the flavor prop. Flavor is implied and added when particle is exposed thru the [[particleGroup.read]] method.
    * @param props these are props specified above
    */
-  spec:(props:object)=>particleComposition
+  spec: (props: object) => particleComposition
 }
 
 /**
  * Particle spec
  * This is how a particle is specified when adding into a group
- * It can be either a parametrized or simple composition
- * However, that composition is missing the flavor prop. Flavor is stored separately alongside the particle.
+ * It can be either a parametrized, a particle composition or a flavor referencing existing particle
+ * Each particle is registered in its group with its own unique flavorName. The flavor coming with the spec
+ * is in reference to a particle being transformed. If
  * Its necessary because parametrized particles hide their flavor in the closure.
  * @category particle
  */
-export type particleSpec=parametrizedParticleSpec | particleComposition
+export type particleSpec = parametrizedParticleSpec | particleComposition | particleFlavor
 
 /**
  * Parametrized particle composition vType factory
@@ -215,18 +250,19 @@ export type particleSpec=parametrizedParticleSpec | particleComposition
  * @param composition function, composition factory
  * @category particle
  */
-export const vParametrizedParticleSpec=Shape({
-  propTypes:{
-    props:Dict({type:vParticle({flavor:'type'})}),
-    spec:functionType
-  }
+export const vParametrizedParticleSpec = Shape({
+  propTypes: {
+    props: Dict({ type: vParticle({ flavor: 'type' }) }),
+    spec: functionType,
+  },
 })
 
 /**
  * Particle spec
  * Each particle of a group is specified by this particle spec. This is what is used for insert operation, into group.
- * Particles can be [simple compositions](particleComposition) or [parametrized composition](parametrizedParticleComposition),
+ * Particles can be [simple compositions](particleComposition) or [parametrized composition](parametrizedParticleComposition) or references
+ * to other particles thru their flavor, with transforms pointing to correct group.
  * which are functions spitting out composition after getting some props. The prop types are defined by a [[particle]] of type group.
  * @category particle
  */
-export const vParticleSpec=Union({types:[vParametrizedParticleSpec,vParticleComposition]})
+export const vParticleSpec = Union({ types: [vParametrizedParticleSpec, vParticleFlavor] })

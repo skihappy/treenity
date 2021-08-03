@@ -1,3 +1,16 @@
+/**
+ * Particle groups are collections of particles described by the same (particle group law){particleGroupLaw.particleGroupLaw}
+ * Groups are similar to collections, with a set of crud like methods to add, remove and update particles.
+ * Any particle, entry in a group can be either scripted or volatile. Scripted particles are serializable and persistent.
+ * Volatile particles live in hard code. Particles can be easily updated between volatile and scripted form.
+ * Particles are uniquely identified by their flavorName, and described by [[particleTypes.particleSpec]].
+ * Particles can be simple [[particleTypes.particleComposition]] or [[particleTypes.parametrizedParticleComposition]],
+ * particle composition factory. A [[particleTypes.parametrizedParticleSpec]] defines types of props the factory takes.
+ * Prop types are defined by  particles of type group, either a reference by flavor or a shorthand type composition.
+ * Particles can be specified by references to other particles, as just a flavor, with transform path.
+ * @module particleGroup
+ */
+
 import {Instance, types as t} from 'mobx-state-tree'
 import {assert, LogicError, mapShape, toArray, vm} from '../utils'
 import {vClass, Shape, stringType, Union, Refine, Func, objectType} from '../types'
@@ -5,35 +18,51 @@ import type {particleFlavor, particleSpec, particle, particleComposition, partic
 import {
     vParametrizedParticleSpec,
     vParticleComposition,
-    vParticleFlavor,
+    vParticleFlavor, vParticleSpec,
 } from "./particle.types"
 import {particleClass as particleClassFactory} from './particle.class'
 import {particleTransform} from "./particleTransform";
 
+/**
+ * Group entry
+ * {@see vEntry}
+ * @category particleGroup
+ */
 interface entry {
+    /**
+     * Flavor name uniquely identifying particle
+     * @remark: Parametrized particle can generate other particles of its flavor, but of different type names
+     */
     flavorName: string
+    /**
+     * Particle spec
+     * If string, its a script generating [[particleTypes.particleSpec]]
+     */
     spec: string | particleSpec
 }
 
+/**
+ * mst model of scripted entry
+ * These are serializable and persistent, as opposed to volatile
+ * @category particleGroup
+ * see [[entry]]
+ */
 const tScriptedEntry = t.model('scriptedEntry', {
     flavorName: t.string,
     spec: t.string,
 })
 
+/**
+ * Scripted group entry type
+ * see [[tScriptedEntry]]
+ * @category particleGroup
+ */
 const vScriptedEntry=Shape({
     propTypes:{
         flavorName: stringType,
         spec: stringType
     }
 })
-
-const vParticleSpec=vParametrizedParticleSpec.setCasts([
-    {
-        castName:'particleComposition',
-        fromType:vParticleComposition,
-        cast:composition=>({spec:()=>composition})
-    }
-])
 
 const findIn = (entries: entry[]) => (name): entry | undefined =>
     entries.find(({ flavorName }: entry) => name === flavorName)
@@ -47,13 +76,22 @@ const deleteIn = (entries: entry[]) => (name): boolean => {
     return true
 }
 
-export const particleGroupModel = (logicEngine:Instance<logicEngineModel>)=> (law:particleGroupLaw) => {
+export const particleGroup = (logicEngine:Instance<logicEngineModel>)=> (law:particleGroupLaw) => {
     const {groupName,compositionType}=law
 
+    /**
+     * Entry in the group, specifying a particle
+     * Each entry,particle is uniquely identified by its flavorName, recorded separately from [[particleTypes.particleSpec]]
+     * Entries can be scripted, serializable, and persistent, living outside of client local memory.
+     * Entries can be specified as volatile, when particle spec is javascript code rather then string. Volitile entries are
+     * usually come from hard code, as part of js bundle to client.
+     * Same particle can be easily updated between volatile and persistent kind.
+     * {@see entry}
+     */
     const vEntry=Shape({
         propTypes:{
             flavorName:stringType,
-            spec:vParticleSpec,
+            spec:vParticleSpec.refined(),
         }
     }).setCasts([{
         castName: 'script',

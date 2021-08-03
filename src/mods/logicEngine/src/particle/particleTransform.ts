@@ -15,6 +15,19 @@ import { assert } from '../utils'
 import type { particleGroupLaw } from './particleGroupLaw.type'
 import { particleClass } from './particle.class'
 
+/**
+ * given a particle, transforms it along the transform path specified by [[particleTypes.particleFlavor.flavorName]].
+ * A particle can be specified either by its flavor, to reference it in the logicEngine in one of the groups, or
+ * it can be defined as a raw [[particleTypes.particleComposition]]. Then, flavor of that composition specifies the transform path.
+ * Transform paths must traverse transformations allowed by [[particleGroupLawType.particleGroupLaw]]s.
+ * Its possible to register a particle as a reference to another particle, by its flavor, with its own transform path.
+ * Then, transform paths will add up into a composite extended path.
+ * The transform paths stay with particle instances for their lifetime, and can be used as markers,carrying information
+ * about functionality of particles.
+ * @param logicEngine instance of logic engine
+ * @param particle particle to be transformed
+ * @param errMsg
+ */
 export const particleTransform = (logicEngine: Instance<logicEngineModel>) => (
   particle: particle,
   errMsg: string | string[] = ['']
