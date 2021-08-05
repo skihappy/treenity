@@ -5,7 +5,7 @@
  * @module
  */
 
-import { LogicError, mapShape, assert, toArray, deepTransform } from './utils'
+import { LogicError, mapShape, assert, toArray, deepTransform, deepExtend, deepDefault } from './utils'
 
 /**
  * @ignore
@@ -89,11 +89,6 @@ export interface complexFlavor {
    * Defaults to {@link flavorName}
    */
   typeName?: string
-
-  /**
-   * any additional props depending on context
-   */
-  [key: string]: any
 }
 
 /**
@@ -183,7 +178,7 @@ export class vClass<value = any, flavorProps extends object = object> {
   private readonly _constructorProps: vClass_props<value>
 
   constructor(vClass_props: vClass_props<value, flavorProps>) {
-    this._constructorProps = deepTransform(vClass_props, {
+    this._constructorProps = deepDefault(vClass_props, {
       flavor: '',
       casts: {},
       create: (value) => value,
@@ -333,18 +328,18 @@ export class vClass<value = any, flavorProps extends object = object> {
 
   /**
    * extends this type
-   * it works only for parametrized types,  by extending  [[parametrizedFlavor.flavorProps]]
-   * @param extender callback that takes this type instance as an arg, and returns extended flavor
+   * It extends the [[flavor]] of the type,  by extending its flavor.
+   * If its a parametrized type, like a Shape, it is possible to extend flavor props to produce an extended type, like
+   * a new shape
+   * @param flavorExtender just what it says.A deep extend is performed
    */
-  extend(extender: (self: vClass<value, flavorProps>) => parametrizedFlavor<flavorProps>): vClass<value, flavorProps> {
-    const extendedFlavor = extender(this)
+  extendFlavor(flavorExtender: object): vClass<value, flavorProps> {
+    const extendedFlavor = deepExtend(this.flavor, flavorExtender)
     return new vClass<value, flavorProps>({
       ...this._constructorProps,
       flavor: extendedFlavor,
     })
   }
-
-  extend(flavorPropsExtender: object): vClass<value, flavorProps> {}
 }
 
 /**
@@ -410,7 +405,7 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
     casts: castFactories,
     flavorName,
     flavorPropsConstraint,
-  } = deepTransform(props, {
+  } = deepDefault(props, {
     flavorPropsConstraint: () => {},
     defaultFlavorProps: {},
     casts: {},
@@ -418,7 +413,7 @@ export function createVTypeFactory<value = any, flavorProps extends object = obj
   })
 
   return (flavorProps, typeName?) => {
-    const defaultedFlavorProps = deepTransform(flavorProps, defaultFlavorProps)
+    const defaultedFlavorProps = deepDefault(flavorProps, defaultFlavorProps)
     const flavor = {
       typeName,
       flavorName,
@@ -464,7 +459,7 @@ export interface createVOptions<value = any> {
  * @typeParam value static type of new type.
  */
 export const createV = <value = any>(assert: assert<value>, options?: createVOptions<value>): vClass<value> => {
-  const { typeName, casts, create } = deepTransform(options || {}, {
+  const { typeName, casts, create } = deepDefault(options || {}, {
     typeName: '',
     casts: [],
     create: (value) => value,
