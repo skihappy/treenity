@@ -11,17 +11,29 @@
  * @module particleGroup
  */
 
-import {Instance, types as t} from 'mobx-state-tree'
-import {assert, LogicError, mapShape, toArray, vm} from '../utils'
-import {vClass, Shape, stringType, Union, Refine, Func, objectType} from '../types'
-import type {particleFlavor, particleSpec, particle, particleComposition, particleTransformPath} from './particle.types'
+import { Instance, types as t } from 'mobx-state-tree'
+import { assert, LogicError, mapShape, toArray, vm } from '../utils'
+import { vClass, Shape, stringType, Union, Refine, Func, objectType } from '../types'
+import type {
+  particleFlavor,
+  particleSpec,
+  particleRef,
+  particle,
+  particleComposition,
+  particleTransformPath,
+  complexParticleFlavor,
+  complexParticleRef,
+  pa,
+} from './particle.types'
 import {
-    vParametrizedParticleSpec,
-    vParticleComposition,
-    vParticleFlavor, vParticleSpec,
-} from "./particle.types"
-import {particleClass as particleClassFactory} from './particle.class'
-import {particleTransform} from "./particleTransform";
+  vParametrizedParticleSpec,
+  vParticleComposition,
+  vParticleFlavor,
+  vParticleRef,
+  vParticleSpec,
+} from './particle.types'
+import { particleClass as particleClassFactory } from './particle.class'
+import { particleTransform } from './particleTransform'
 
 /**
  * Group entry
@@ -29,16 +41,16 @@ import {particleTransform} from "./particleTransform";
  * @category particleGroup
  */
 interface entry {
-    /**
-     * Flavor name uniquely identifying particle
-     * @remark: Parametrized particle can generate other particles of its flavor, but of different type names
-     */
-    flavorName: string
-    /**
-     * Particle spec
-     * If string, its a script generating [[particleTypes.particleSpec]]
-     */
-    spec: string | particleSpec
+  /**
+   * Flavor name uniquely identifying particle
+   * @remark: Parametrized particle can generate other particles of its flavor, but of different type names
+   */
+  flavorName: string
+  /**
+   * Particle spec
+   * If string, its a script generating [[particleTypes.particleSpec]]
+   */
+  spec: string | particleSpec
 }
 
 /**
@@ -48,8 +60,8 @@ interface entry {
  * see [[entry]]
  */
 const tScriptedEntry = t.model('scriptedEntry', {
-    flavorName: t.string,
-    spec: t.string,
+  flavorName: t.string,
+  spec: t.string,
 })
 
 /**
@@ -57,163 +69,240 @@ const tScriptedEntry = t.model('scriptedEntry', {
  * see [[tScriptedEntry]]
  * @category particleGroup
  */
-const vScriptedEntry=Shape({
-    propTypes:{
-        flavorName: stringType,
-        spec: stringType
-    }
+const vScriptedEntry = Shape({
+  propTypes: {
+    flavorName: stringType,
+    spec: stringType,
+  },
 })
 
 const findIn = (entries: entry[]) => (name): entry | undefined =>
-    entries.find(({ flavorName }: entry) => name === flavorName)
+  entries.find(({ flavorName }: entry) => name === flavorName)
 
 const insertIn = (entries: entry[]) => (entry): number => entries.push(entry)
 
 const deleteIn = (entries: entry[]) => (name): boolean => {
-    const index = entries.findIndex(({ flavorName }: entry) => name === flavorName)
-    if (index < 0) return false
-    entries.splice(index, 1)
-    return true
+  const index = entries.findIndex(({ flavorName }: entry) => name === flavorName)
+  if (index < 0) return false
+  entries.splice(index, 1)
+  return true
 }
 
-export const particleGroup = (logicEngine:Instance<logicEngineModel>)=> (law:particleGroupLaw) => {
-    const {groupName,compositionType}=law
+/**
+ * particle group
+ * Its mst model
+ * Its a collection of particles, with a set of crud methods to add, remove and update particles.
+ */
+export interface particleGroup {
+  /**
+   * The law of this group
+   * It specifies all needed to build the group
+   */
+  law: particleGroupLaw
+  /**
+   * Read particle
+   * @param particleRef
+   * @param errMsg if error is thrown, this is part of the error message
+   * @throws if flavorName is not found, or particleRef is malformed
+   * @returns instance of a particle
+   */
+  read: (particleRef: particleRef, errMsg: string) => Instance<particleClass>
+  /**
+   * Either updates existing particle or inserts new one
+   * @param flavorName
+   * @param particleSpec
+   * @param errMsg if error is thrown, this is part of the error message
+   * @throws if particleSpec is malformed
+   */
+  upsert: (flavorName: string, particleSpec: particleSpec, errMsg: string) => void
+  /**
+   * updates existing particle
+   * @param flavorName
+   * @param particleSpec
+   * @param errMsg if error is thrown, this is part of the error message
+   * @throws if particle not found, or particleSpec is malformed
+   */
+  update: (flavorName: string, particleSpec: particleSpec, errMsg: string) => void
+  /**
+   * inserts new particle
+   * @param flavorName
+   * @param particleSpec
+   * @param errMsg if error is thrown, this is part of the error message
+   * @throws if particle exists
+   */
+  insert: (flavorName: string, particleSpec: particleSpec, errMsg: string) => void
+  /**
+   * deletes existing particle
+   * @param flavorName
+   * @param errMsg if error is thrown, this is part of the error message
+   * @throws if particle not found
+   */
+  delete: (flavorName: string, errMsg: string) => void
+}
 
-    /**
-     * Entry in the group, specifying a particle
-     * Each entry,particle is uniquely identified by its flavorName, recorded separately from [[particleTypes.particleSpec]]
-     * Entries can be scripted, serializable, and persistent, living outside of client local memory.
-     * Entries can be specified as volatile, when particle spec is javascript code rather then string. Volitile entries are
-     * usually come from hard code, as part of js bundle to client.
-     * Same particle can be easily updated between volatile and persistent kind.
-     * {@see entry}
-     */
-    const vEntry=Shape({
-        propTypes:{
-            flavorName:stringType,
-            spec:vParticleSpec.refined(),
+/**
+ * mst model of particle group
+ * see [[particleGroup]]
+ * @param logicEngine
+ * @param law
+ */
+export const particleGroupModel = (logicEngine: Instance<logicEngineModel>) => (law: particleGroupLaw) => {
+  const { groupName, compositionType } = law
+
+  /**
+   * Entry in the group, specifying a particle
+   * Each entry,particle is uniquely identified by its flavorName, recorded separately from [[particleTypes.particleSpec]]
+   * Entries can be scripted, serializable, and persistent, living outside of client local memory.
+   * Entries can be specified as volatile, when particle spec is javascript code rather then string. Volitile entries are
+   * usually come from hard code, as part of js bundle to client.
+   * Same particle can be easily updated between volatile and persistent kind.
+   * {@see entry}
+   */
+  const vEntry = Shape({
+    propTypes: {
+      flavorName: stringType,
+      spec: vParticleSpec({ groupName }),
+    },
+  }).setCasts([
+    {
+      castName: 'script',
+      fromType: vScriptedEntry,
+      cast: (flavor) => {
+        const { flavorName, spec: script } = flavor
+        const vm = logicEngine.vm
+        try {
+          return { flavorName, spec: vm.run(script) }
+        } catch (e) {
+          throw new LogicError(`bad particleSpec script for flavor=${flavor}`, e)
         }
-    }).setCasts([{
-        castName: 'script',
-        fromType: vScriptedEntry,
-        cast:(flavor)=>{
-            const {flavorName,spec:script}=flavor
-            const vm=logicEngine.vm
-            try{
-                return {flavorName,spec:vm.run(script)}
-            }catch(e){
-                throw new LogicError(`bad particleSpec script for flavor=${flavor}`,e)
-            }
-        }
-    }])
+      },
+    },
+  ])
 
-    const groupErrMsg=`group ${self.name}`
+  const groupErrMsg = `group ${self.name}`
 
-    return t
-        .model('collectionModel', {
-            name: t.literal(groupName),
-            persistentEntries: t.optional(t.array(tScriptedEntry), []),
-        })
-        .views((self) => ({
-            assert(guard: boolean, errMessage?: string | string[]) {
-                assert(guard, [groupErrMsg, ...toArray(errMessage)])
+  return t
+    .model('collectionModel', {
+      name: t.literal(groupName),
+      persistentEntries: t.optional(t.array(tScriptedEntry), []),
+    })
+    .views((self) => ({
+      get law() {
+        return law
+      },
+    }))
+    .actions((self) => {
+      const volatileEntries: entry[] = []
+
+      const entries = (which: 'persistent' | 'volatile' | entry): entry[] => {
+        return which === ('persistent' || tScriptedEntry.is(which)) ? self.persistentEntries : volatileEntries
+      }
+
+      //implements crud
+      return {
+        read(particleRef: particleRef, errMsg: string = ''): Instance<particleClass> {
+          const localErrMsg = `reading particleRef ${particleRef}`
+
+          if (!vParticleRef({ groupName }).is(particleRef))
+            return particleTransform(logicEngine)(particleRef as particleComposition, [
+              groupErrMsg,
+              localErrMsg,
+              errMsg,
+            ])
+
+          const { flavorName, props: flavorProps } = vParticleRef({ groupName }).create(particleRef, [
+            groupErrMsg,
+            localErrMsg,
+            errMsg,
+          ]) as complexParticleRef
+
+          const entry = findIn(entries('persistent'))(flavorName) || findIn(entries('volatile'))(flavorName)
+
+          assert(!!entry, [groupErrMsg, localErrMsg, `can not find flavor`, errMsg])
+
+          const {
+            spec: { props: flavorPropTypes, composition: compositionFactory },
+          } = vEntry.create(entry, [groupErrMsg, localErrMsg, errMsg])
+
+          const vFlavorPropsTypes = Shape({
+            propTypes: mapShape(flavorPropTypes, (propTypeParticle, propName) =>
+              logicEngine.groups.types.read(propTypeParticle, [groupErrMsg, localErrMsg, errMsg])
+            ),
+          })
+
+          const particleComposition = Func({
+            args: [vFlavorPropsTypes],
+            result: compositionType,
+          }).create(compositionFactory)(flavorProps, [groupErrMsg, localErrMsg, errMsg])
+
+          return particleTransform(Object.assign(particleComposition, particleRef))
+        },
+
+        upsert(flavorName: string, particleSpec: particleSpec, errMsg: string = '') {
+          const localErrMsg = `upsert of flavorName ${flavorName},spec ${particleSpec}`
+
+          const entry = vEntry.create(
+            {
+              flavorName,
+              spec: particleSpec,
             },
-        }))
-        .actions((self) => {
-            const volatileEntries: entry[] = []
+            [groupErrMsg, localErrMsg, errMsg]
+          ) as entry
 
-            const entries = (which: 'persistent' | 'volatile' | entry): entry[] => {
-                return which === ('persistent' || tScriptedEntry.is(which)) ? self.persistentEntries : volatileEntries
-            }
+          try {
+            this.delete(flavorName)
+          } catch (e) {}
 
-            const verify = (func: () => any, errMessage?: string | string[]) => {
-                try {
-                    func()
-                } catch (e) {
-                    self.assert(false, errMessage)
-                }
-            }
+          insertIn(entries(entry))(entry)
+        },
 
-            //implements crud
-            return {
-                read(particle:particle,errMsg:string='') {
-                    const localErrMsg=`reading particle ${particle}`
-                    if(!vParticleFlavor.is(particle as object))
-                        return particleTransform(logicEngine)(particle,[groupErrMsg,localErrMsg])
-                    const particleFlavor = vParticleFlavor.create(particle as particleFlavor,`bad reference, group ${groupName}`)
-                    const { flavorName:flavorNameArray, props: flavorProps }=particleFlavor
+        update(flavorName: string, particleSpec: particleSpec, errMsg: string = '') {
+          const localErrMsg = `update of flavorName ${flavorName},spec ${particleSpec}`
 
-                    assert(flavorNameArray.length===1,`flavor name can not be `)
-                    const entry =
-                        findIn(entries('persistent'))(flavorName) ||
-                        findIn(entries('volatile'))(flavorName)
+          const entry = vEntry.create(
+            {
+              flavorName,
+              spec: particleSpec,
+            },
+            [groupErrMsg, localErrMsg, errMsg]
+          ) as entry
 
-                    self.assert(!!entry, [`read: can not find flavor ${flavorName}`, errMsg])
+          try {
+            this.delete(flavorName)
+          } catch (e) {
+            throw new LogicError([groupErrMsg, localErrMsg, `particle does not exists`, errMsg])
+          }
 
-                    const {particleSpec:{props:flavorPropTypes,spec:specFactory}}=
-                        vEntry.create(entry,`read bad entry=${entry}`)
+          insertIn(entries(entry))(entry)
+        },
 
-                    const vFlavorPropsTypes=Shape({
-                        propTypes:mapShape(
-                            flavorPropTypes,
-                            (propTypeParticle,propName)=>logicEngine.groups.types.read(
-                                propTypeParticle,
-                                `reading flavor=${particleFlavor}`
-                            )
-                        )
-                    })
+        insert(flavorName: string, particleSpec: particleSpec, errMsg: string = '') {
+          const localErrMsg = `insert of flavorName ${flavorName},spec ${particleSpec}`
 
-                    const particleComposition=Func({
-                        args:[vFlavorPropsTypes],
-                        result:compositionType
-                    }).create(specFactory)(flavorProps,`reading flavor=${particleFlavor}`)
+          const entry = vEntry.create(
+            {
+              flavorName,
+              spec: particleSpec,
+            },
+            [groupErrMsg, localErrMsg, errMsg]
+          ) as entry
 
-                    return particleTransform(Object.assign(particleComposition, particleFlavor))
-                },
+          const oldEntry = findIn(entries(entry))(entry)
+          assert(!!oldEntry, [groupErrMsg, localErrMsg, `entry exists`, errMsg])
 
+          insertIn(entries(entry))(entry)
+        },
 
-                upsert(flavorName:particleTransformPath,particleSpec: particleSpec, errMsg: string = '') {
-                    const entry=vEntry.create({
-                        flavorName,
-                        spec:particleSpec
-                    },[errMsg,`upsert of group ${groupName} for flavorName ${flavorName}`])
+        delete(flavorName: string, errMsg: string = '') {
+          const localErrMsg = `delete flavorName ${flavorName}`
 
-                    try {
-                        this.delete(flavorName)
-                    } catch (e) {}
-
-                    insertIn(entries(entry as entry))(entry)
-                },
-
-                update(flavorName:particleTransformPath,particleSpec: particleSpec, errMsg: string = '') {
-                    const entry=vEntry.create({
-                        flavorName,
-                        spec:particleSpec
-                    },[errMsg,`update of group ${groupName} for flavorName ${flavorName}`])
-
-                    try{
-                        this.delete(flavorName)
-                    }catch(e){
-                        throw new LogicError([`update: particle ${flavorName} does not exists`, errMsg])
-                    }
-                    verify(() => this.delete(name), [`update: entry ${name} does not exists`, errMsg])
-                    insertIn(entries(entry))
-                },                    const { name, value } = entry
-
-
-                insert(entry: entry, errMsg: string = '') {
-                    verify(() => vEntry.assert(entry), ['insert:  bad entry', errMsg])
-                    const { name, value } = entry
-                    verify(() => this.read(name), [`insert: entry ${name} already exists`, errMsg])
-                    insertIn(entries(entry))
-                },
-
-                delete(name: string, errMsg: string = '') {
-                    self.assert(deleteIn(entries('persistent'))(name) || deleteIn(entries('volatile'))(name), [
-                        `delete: entry ${name} does not exist`,
-                        errMsg,
-                    ])
-                },
-            }
-        })
+          assert(deleteIn(entries('persistent'))(flavorName) || deleteIn(entries('volatile'))(flavorName), [
+            groupErrMsg,
+            localErrMsg,
+            'entry does not exist',
+            errMsg,
+          ])
+        },
+      }
+    })
 }

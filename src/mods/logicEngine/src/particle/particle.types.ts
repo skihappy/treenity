@@ -129,7 +129,7 @@ export interface complexParticleRef<flavorProps extends object = object> {
   /**
    * uniquely identifies particle in group
    */
-  flavorName?: string
+  flavorName: string
   /**
    * Transform path, from left to right
    */
@@ -390,7 +390,7 @@ export type particleSpec = parametrizedParticleSpec | particleComposition | part
 export const vParametrizedParticleSpec = Shape({
   propTypes: {
     props: Dict({ type: vParticle({ groupName: 'type' }) }),
-    spec: functionType,
+    composition: functionType,
   },
 })
 
