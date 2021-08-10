@@ -7,13 +7,14 @@
  * by exact sequence of steps.
  * @module
  */
-import type { particleComposition, particle } from './particle.types'
+import type { particleComposition, particle, complexParticleFlavor } from './particle.types'
 import { vParticleComposition, vParticleFlavor } from './particle.types'
 import { Instance } from 'mobx-state-tree'
 import { logicEngineModel } from '../logicEngine.model'
 import { assert } from '../utils'
 import type { particleGroupLaw } from './particleGroupLaw.type'
 import { particleClass } from './particle.class'
+import { complexFlavor } from '../types'
 
 /**
  * given a particle, transforms it along the transform path specified by [[particleTypes.particleFlavor.flavorName]].
@@ -25,17 +26,18 @@ import { particleClass } from './particle.class'
  * The transform paths stay with particle instances for their lifetime, and can be used as markers,carrying information
  * about functionality of particles.
  * @param logicEngine instance of logic engine
+ * @param targetGroupName
  * @param particle particle to be transformed
  * @param errMsg
  */
 export const particleTransform = (logicEngine: Instance<logicEngineModel>) => (
+  targetGroupName: string,
   particle: particle,
   errMsg: string | string[] = ['']
 ): particleClass => {
   const localErrMsg = (transformPath: string[]) => [errMsg, `invalid transform ${transformPath}`]
 
   const transform = (
-    sourceFlavorName: string,
     sourceGroupName: string,
     transformPath: string[],
     sourceComposition: particleComposition,
@@ -51,38 +53,46 @@ export const particleTransform = (logicEngine: Instance<logicEngineModel>) => (
     }, sourceComposition)
 
     //@ts-ignore
-    targetComposition.flavor.flavorName = [
-      ...sourceFlavorName,
+    targetComposition.flavor.transform = [
       sourceGroupName,
       ...transformPath,
       //@ts-ignore
-      ...sourceComposition.flavor.flavorName,
+      ...sourceComposition.flavor.transform,
     ]
     const targetGroupName = transformPath.reverse()[0]
     return new particleClass(targetGroupName)(targetComposition)
   }
 
-  if (vParticleFlavor.is(particle as object)) {
-    const { flavorName } = vParticleFlavor.create(particle)
-    const [sourceFlavorName, sourceGroupName, ...transformPath] = flavorName
+  if (vParticleFlavor({ groupName: targetGroupName }).is(particle as object)) {
+    const {
+      transform: [sourceGroupName, ...transformPath],
+    } = vParticleFlavor({ groupName: targetGroupName }).create(particle) as Required<complexParticleFlavor>
 
     const sourceFlavor = Object.assign(Object.create(particle as object), {
-      flavorName: [sourceFlavorName, sourceGroupName],
+      transform: [sourceGroupName],
     })
 
     const sourceComposition = logicEngine.read(sourceFlavor, errMsg).composition
-    return transform(sourceFlavorName, sourceGroupName, transformPath, sourceComposition, localErrMsg(flavorName))
+    return transform(
+      sourceGroupName,
+      transformPath,
+      sourceComposition,
+      localErrMsg([sourceGroupName, ...transformPath])
+    )
   }
 
+  const sourceComposition = vParticleComposition({ groupName: targetGroupName }).create(particle)
+
   const {
-    flavor: { flavorName },
-  } = vParticleComposition.create(particle)
-  const [sourceFlavorName, sourceGroupName, ...transformPath] = flavorName
+    flavor: {
+      transform: [sourceGroupName, ...transformPath],
+    },
+  } = sourceComposition as { flavor: { transform: string[] } }
+
   return transform(
-    sourceFlavorName,
     sourceGroupName,
     transformPath,
     particle as particleComposition,
-    localErrMsg(flavorName)
+    localErrMsg([sourceGroupName, ...transformPath])
   )
 }

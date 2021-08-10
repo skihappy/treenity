@@ -480,7 +480,7 @@ export const v = <vClass<object, any>>(
  * type asserting any value
  * @category vType
  */
-export const any = createV(() => {})
+export const any = createV(() => {}, { typeName: 'any' })
 
 /**
  * @internal
@@ -673,7 +673,7 @@ export const Func = createVTypeFactory<(...[]) => any, funcFlavorProps>({
     const result = func(...Tuple({ types: args }).create(args))
     return result.create(result)
   },
-  flavorName: 'func',
+  flavorName: 'typecheckedFunction',
 })
 
 /**
@@ -876,7 +876,7 @@ export const Union = createVTypeFactory<any, unionFlavorProps>({
  * array type.  not a composed type.
  * @category vType
  */
-export const array = createV((value) => assert(Array.isArray(value), 'not an array'))
+export const array = createV((value) => assert(Array.isArray(value), 'not an array'), { typeName: 'array' })
 
 /**
  * props of arrayType factory

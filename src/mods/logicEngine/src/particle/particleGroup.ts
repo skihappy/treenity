@@ -12,27 +12,10 @@
  */
 
 import { Instance, types as t } from 'mobx-state-tree'
-import { assert, LogicError, mapShape, toArray, vm } from '../utils'
-import { vClass, Shape, stringType, Union, Refine, Func, objectType } from '../types'
-import type {
-  particleFlavor,
-  particleSpec,
-  particleRef,
-  particle,
-  particleComposition,
-  particleTransformPath,
-  complexParticleFlavor,
-  complexParticleRef,
-  pa,
-} from './particle.types'
-import {
-  vParametrizedParticleSpec,
-  vParticleComposition,
-  vParticleFlavor,
-  vParticleRef,
-  vParticleSpec,
-} from './particle.types'
-import { particleClass as particleClassFactory } from './particle.class'
+import { assert, LogicError, mapShape } from '../utils'
+import { Shape, stringType, Func } from '../types'
+import type { particleSpec, particleRef, particleComposition, complexParticleRef } from './particle.types'
+import { vParticleRef, vParticleSpec } from './particle.types'
 import { particleTransform } from './particleTransform'
 
 /**
@@ -106,7 +89,7 @@ export interface particleGroup {
    * @throws if flavorName is not found, or particleRef is malformed
    * @returns instance of a particle
    */
-  read: (particleRef: particleRef, errMsg: string) => Instance<particleClass>
+  read: (particleRef: particleRef, errMsg: string) => particleClass
   /**
    * Either updates existing particle or inserts new one
    * @param flavorName
@@ -200,11 +183,11 @@ export const particleGroupModel = (logicEngine: Instance<logicEngineModel>) => (
 
       //implements crud
       return {
-        read(particleRef: particleRef, errMsg: string = ''): Instance<particleClass> {
+        read(particleRef: particleRef, errMsg: string = ''): particleClass {
           const localErrMsg = `reading particleRef ${particleRef}`
 
           if (!vParticleRef({ groupName }).is(particleRef))
-            return particleTransform(logicEngine)(particleRef as particleComposition, [
+            return particleTransform(logicEngine)(groupName, particleRef as particleComposition, [
               groupErrMsg,
               localErrMsg,
               errMsg,

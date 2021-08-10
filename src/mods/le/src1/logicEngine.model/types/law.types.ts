@@ -59,9 +59,7 @@ export interface particleClassLaw {
   //They will live either in serializable scripts, or in hard code as a module. Please,  go an extra mile
   //for the sake of others,  if you are to publish your law. Each fundamental should address a way of composing,as one
   //of types in particleComposition union
-  fundamentalParticles: {
-    [flavorName: string]: funentalParticle
-  }
+  fundamentalParticles: { ent; [flavorName: string]: funentalParticle }
 
   //composition transforms from other classes. Basically, a cast at composition level
   transforms?: transforms

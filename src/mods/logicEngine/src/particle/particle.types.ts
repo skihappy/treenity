@@ -286,7 +286,7 @@ export interface particleComposition<flavorProps extends object = object> {
 const vUnflavoredParticleComposition = (groupName: string) =>
   Shape({
     propTypes: {
-      flavor: vParticleFlavor({ groupName }).maybe(),
+      flavor: vParticleFlavor({ groupName }).defaultsTo({}),
     },
     isStrict: false,
   })
