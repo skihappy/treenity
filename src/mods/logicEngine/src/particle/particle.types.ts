@@ -65,7 +65,23 @@
  *   parametrizedParticleSpec - specifies a parametrized particle. Its a composition factory. In addition, the spec defines
  *   types of props the factory accepts. These prop types are defined by particle references to type particles, of type group.
  *
- * NOTE: flavor is a reserved name, not to be used for prop names in particle compositions
+ *   particleState - particles are stateful.
+ *   Particle state defines the shape of the state and quantum,discrete states allowed.
+ *   Each quantum state has a unique name. A particle, inside the closure of any function, can access only
+ *   quantum states by referencing their names. This assures serialization of the state, no matter its complexity.
+ *   The state shape is given by state type, then each discrete state is a type refining state shape. It can just set literal values,
+ *   or make more complicated assertions based on states of other particles within particle composition. Therefore, the notion
+ *   of entangled states. These asserting funcs are reactive and the states are observables.
+ *   A particle can be in several superposed states at same time, as state assertions can intersect. So, the state of a particle
+ *   is completely described by an array of state names. This is what is seen by the funcs within particle composition, a reactive
+ *   array of strings, an observable. A particle can set its state only to one , or several superposed, of the allowed
+ *   discrete states. Some of the states might be prohibited by constraints imposed by state assertions.
+ *   State is not entirely contained within individual particles. It starts with the global state of the logic system, instance
+ *   of LE. group laws extend the global state, particle state extends the state of its law. All particles, as they pop
+ *   in and out of existence can be made aware of each other, to be entangled. As example, the user token can be stored
+ *   in the global state,  to implement a permission system.
+ *
+ * NOTE: flavor and state are reserved names, not to be used for prop names in particle compositions
  *
  * @module particleTypes
  */
@@ -89,6 +105,7 @@ import {
 import { logicEngineModel } from '../logicEngine.model'
 import { Instance } from 'mobx-state-tree'
 import { assert } from '../utils'
+import { particleClass } from './particle.class'
 
 export type logicEngine = Instance<typeof logicEngineModel>
 
@@ -415,4 +432,99 @@ export const vParticleSpec = createVTypeFactory<particleSpec, { groupName: strin
     vUnflavoredParticleSpec(groupName).assert(spec, `bad spec ${spec} for group ${groupName}`),
   create: ({ props: { groupName } }) => (spec) => vUnflavoredParticleSpec(groupName).create(spec),
   flavorName: 'particleSpec',
+})
+
+/**
+ * A discrete value of a particle state
+ * Each value has a name, and the value itself is a type which is refinement of state shape
+ * If value is given as object, it should be a partial shape of the state. Value of each prop is used
+ * as literal value.
+ * In general case, each state value is defined by get and set functions
+ * Set is used when state of a particle is set to that discrete state value. It can be used to propagate state change event
+ * to entangled particles. The state value set func is executed first, then particle state is set to the value returned by
+ * get function.
+ */
+export type discreteState =
+  /**
+   * a shape extending the shape of particle state. Each prop value is treated as literal value
+   */
+  | object
+  | {
+      /**
+       *Used when setting particle state.  Before setting the state to the value returned by get, the set function
+       * is executed. It can be used to create side effects by setting state of entangled particles.
+       * @param self particle instance
+       */
+      set: (self: particleClass) => void
+      /**
+       * Its basically an assertion, refining the state type. It can throw as any assertion, but, as a convinience, it can,
+       * in addition, return a shape extending state type, with prop values. It can examine the state of composing particles
+       * and throw if constraints are not met,  prohibiting the state transition. The side effcts performed by set
+       * function are not reversed, but the state transition is not allowed
+       * @param self particle instance
+       */
+      get: (self: particleClass) => object | undefined
+    }
+  /**
+   * this is a getter function.
+   */
+  | ((self: particleClass) => object | undefined)
+
+/**
+ * particle state
+ * actually, same type is used as global state of a logic engine. Then, this global state is extended by each
+ * particle group law, and then by each particle.
+ * Particles do not see values of the state props.  Instead, they see only the names of discrete state, as an array
+ * of state names. Those are superposed states, for a particle can be in a  number of discrete states at the same time.
+ * Each discrete state defines the state only partially, so they can intersect.
+ */
+export interface particleState {
+  /**
+   * the shape of state.
+   * Its an object. Then, each discrete state refines, constrains this type into a different type by defining
+   * literal values of props, or constraining in a more complicated way, entangling other particles
+   */
+  type: particle
+  /**
+   * a dict of discrete states, giving each a name
+   * see [[particleState]]
+   */
+  discreteStates: {
+    [stateName: string]: discreteState
+  }
+}
+
+/**
+ *discrete state type
+ * see [[discreteState]]
+ */
+export const vDiscreteState = Shape({
+  propTypes: {
+    set: functionType.defaultsTo(() => {}),
+    get: functionType.defaultsTo(() => ({})),
+  },
+}).setCasts([
+  {
+    castName: 'getterState',
+    fromType: functionType,
+    cast: (get) => ({ get }),
+  },
+  {
+    castName: 'literalShape',
+    fromType: objectType,
+    cast: (stateShape) => ({ get: () => stateShape }),
+  },
+])
+
+/**
+ * particle state type
+ * see [[particleState]]
+ */
+export const vParticleState = Shape({
+  propTypes: {
+    type: vParticle({ groupName: 'type' }),
+    states: Dict({
+      type: vDiscreteState,
+    }),
+  },
 })
