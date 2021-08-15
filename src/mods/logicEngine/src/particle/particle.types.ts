@@ -65,21 +65,25 @@
  *   parametrizedParticleSpec - specifies a parametrized particle. Its a composition factory. In addition, the spec defines
  *   types of props the factory accepts. These prop types are defined by particle references to type particles, of type group.
  *
- *   particleState - particles are stateful.
- *   Particle state defines the shape of the state and quantum,discrete states allowed.
- *   Each quantum state has a unique name. A particle, inside the closure of any function, can access only
- *   quantum states by referencing their names. This assures serialization of the state, no matter its complexity.
- *   The state shape is given by state type, then each discrete state is a type refining state shape. It can just set literal values,
- *   or make more complicated assertions based on states of other particles within particle composition. Therefore, the notion
- *   of entangled states. These asserting funcs are reactive and the states are observables.
- *   A particle can be in several superposed states at same time, as state assertions can intersect. So, the state of a particle
- *   is completely described by an array of state names. This is what is seen by the funcs within particle composition, a reactive
- *   array of strings, an observable. A particle can set its state only to one , or several superposed, of the allowed
- *   discrete states. Some of the states might be prohibited by constraints imposed by state assertions.
- *   State is not entirely contained within individual particles. It starts with the global state of the logic system, instance
- *   of LE. group laws extend the global state, particle state extends the state of its law. All particles, as they pop
- *   in and out of existence can be made aware of each other, to be entangled. As example, the user token can be stored
- *   in the global state,  to implement a permission system.
+ *   particleStateSpec - particles are stateful.
+ *   Particle state is defined in two places. The part of the state common to all the particles of the group is defined
+ *   by group law.  Then, each particle can add its own custom state as long as its not in conflict with the common state.
+ *   Heres what a particle state spec defines:
+ *   * the shape of the state,
+ *   the types of state props.
+ *   * state constraints
+ *   funcs restricting state props depending on other particles. In effect, these creates entanglements between related particles
+ *   * actions
+ *   all possible actions can be performed on the state. Each action can take a payload of props and mutates the state.
+ *   The state is never mutated in place, rather, it is replaced with new object.
+ *   * stateValues
+ *   These are refinements of state shape, subtypes. Literal values of state props can be specified, as well as more complicated
+ *   constraints. A particle can exist in a superposition of stateValues. StateValues are the only part of the state visible outside.
+ *   Values of state props are not directly exposed, but only thru an array of stateValue names.
+ *
+ *   State constraints might prohibit some actions.Also, an action might modify the state of other related particles.
+ *   All the state values and props are observables, and all functions are reactive, rerun on any change to any observable used
+ *   inside of it.
  *
  * NOTE: flavor and state are reserved names, not to be used for prop names in particle compositions
  *
@@ -92,19 +96,17 @@ import {
   Union,
   objectType,
   createVTypeFactory,
-  flavor,
   ArrayType,
-  vClass,
   Dict,
   v,
   functionType,
-  complexFlavor,
   parametrizedFlavor,
   simpleFlavor,
+  Literal,
 } from '../types'
 import { logicEngineModel } from '../logicEngine.model'
 import { Instance } from 'mobx-state-tree'
-import { assert } from '../utils'
+import { assert, mapShape } from '../utils'
 import { particleClass } from './particle.class'
 
 export type logicEngine = Instance<typeof logicEngineModel>
@@ -159,6 +161,10 @@ export interface complexParticleRef<flavorProps extends object = object> {
    * for parametrized particles, props of particle factory
    */
   props?: flavorProps
+  /**
+   * this state will be superposed on the initial state coming from
+   */
+  initialState: string | string[]
 }
 
 /**
@@ -290,7 +296,10 @@ export interface particleComposition<flavorProps extends object = object> {
    * particle flavor
    */
   flavor?: particleFlavor
-
+  /**
+   * particle state extends the common state defined by group law
+   */
+  state?: stateSpec
   /**
    * any additional structure
    */
@@ -304,6 +313,7 @@ const vUnflavoredParticleComposition = (groupName: string) =>
   Shape({
     propTypes: {
       flavor: vParticleFlavor({ groupName }).defaultsTo({}),
+      state: vUnflavoredStateSpec.defaultsTo({}),
     },
     isStrict: false,
   })
@@ -435,96 +445,176 @@ export const vParticleSpec = createVTypeFactory<particleSpec, { groupName: strin
 })
 
 /**
- * A discrete value of a particle state
- * Each value has a name, and the value itself is a type which is refinement of state shape
- * If value is given as object, it should be a partial shape of the state. Value of each prop is used
- * as literal value.
- * In general case, each state value is defined by get and set functions
- * Set is used when state of a particle is set to that discrete state value. It can be used to propagate state change event
- * to entangled particles. The state value set func is executed first, then particle state is set to the value returned by
- * get function.
+ * Part of state spec
+ * A function constraining values of state props. Its reactive, reruns on change of any observables its using
+ * On each change of an observable, the function returns an object with state prop values, not the whole state tho.
+ * In effect, this is a way to entangle particle, deriving a particle state from state values of other particles
+ * Note that only stateValues of entangled particles are observable, not state prop values.
+ * @param particle a particle element, instance of [[particleClass.particleClass]]
+ * @param state state prop values
  */
-export type discreteState =
-  /**
-   * a shape extending the shape of particle state. Each prop value is treated as literal value
-   */
-  | object
-  | {
-      /**
-       *Used when setting particle state.  Before setting the state to the value returned by get, the set function
-       * is executed. It can be used to create side effects by setting state of entangled particles.
-       * @param self particle instance
-       */
-      set: (self: particleClass) => void
-      /**
-       * Its basically an assertion, refining the state type. It can throw as any assertion, but, as a convinience, it can,
-       * in addition, return a shape extending state type, with prop values. It can examine the state of composing particles
-       * and throw if constraints are not met,  prohibiting the state transition. The side effcts performed by set
-       * function are not reversed, but the state transition is not allowed
-       * @param self particle instance
-       */
-      get: (self: particleClass) => object | undefined
-    }
-  /**
-   * this is a getter function.
-   */
-  | ((self: particleClass) => object | undefined)
-
-/**
- * particle state
- * actually, same type is used as global state of a logic engine. Then, this global state is extended by each
- * particle group law, and then by each particle.
- * Particles do not see values of the state props.  Instead, they see only the names of discrete state, as an array
- * of state names. Those are superposed states, for a particle can be in a  number of discrete states at the same time.
- * Each discrete state defines the state only partially, so they can intersect.
- */
-export interface particleState {
-  /**
-   * the shape of state.
-   * Its an object. Then, each discrete state refines, constrains this type into a different type by defining
-   * literal values of props, or constraining in a more complicated way, entangling other particles
-   */
-  type: particle
-  /**
-   * a dict of discrete states, giving each a name
-   * see [[particleState]]
-   */
-  discreteStates: {
-    [stateName: string]: discreteState
-  }
+export interface stateConstraint {
+  (particle: particleClass, state: object): object
 }
 
 /**
- *discrete state type
- * see [[discreteState]]
+ * State spec defines all possible actions , the way to modify particle state.
+ * The state can be modified only by these actions. The state is never mutated in place, but a new state object
+ * is created.
+ * An action takes payload props, and returns a mutator object, to be extended over the old state prop values
+ * @param particle a particle element, instance of [[particleClass.particleClass]]
+ * @param state state prop values
  */
-export const vDiscreteState = Shape({
+export interface stateAction {
+  (particle: particleClass, state: object): (payload: object) => object
+}
+
+/**
+ * Specifies one of state actions
+ * Just a [[stateAction]] function can be used if action does not take any payload
+ */
+export type stateActionSpec =
+  | {
+      /**
+       * Specifies types of state props.
+       * By referencing type particles, or by freehand type compositions
+       */
+      payloadPropTypes: {
+        [propName: string]: particle
+      }
+      action: stateAction
+    }
+  | ((particle: particleClass, state: object) => () => object)
+
+/**
+ * see [[stateActionSpec]]
+ */
+export const vStateActionSpec = Shape({
   propTypes: {
-    set: functionType.defaultsTo(() => {}),
-    get: functionType.defaultsTo(() => ({})),
+    payloadPropTypes: Dict({ type: vParticle({ groupName: 'type' }) }).defaultsTo({}),
+    action: functionType,
   },
 }).setCasts([
   {
-    castName: 'getterState',
+    castName: 'no payload',
     fromType: functionType,
-    cast: (get) => ({ get }),
-  },
-  {
-    castName: 'literalShape',
-    fromType: objectType,
-    cast: (stateShape) => ({ get: () => stateShape }),
+    cast: (action) => ({ action }),
   },
 ])
 
 /**
- * particle state type
- * see [[particleState]]
+ * States can have discrete value given by names
+ * State value is associated with a type, given by a refinement function, an extra assertion on state shape.
+ * State is said to have a particular stateValue when this state value assertion is satisfied
+ * A particle can be in superposition of several state values
+ * State values are the only part of the particle state visible outside,as an array of state value names
+ * If state value assertion is given by an object, the props of that object are literal values of state props
  */
-export const vParticleState = Shape({
+export type stateValueAssertion = object | ((state: object) => void)
+
+/**
+ * see [[stateValueAssertion]]
+ */
+export const vStateValueAssertion = functionType.setCasts([
+  {
+    castName: 'literalPropValues',
+    fromType: objectType,
+    cast: (literalValues: object) => {
+      return (state: object) => {
+        Shape({
+          propTypes: mapShape(literalValues, (value) => Literal({ value })),
+          isStrict: false,
+        }).assert(state)
+      }
+    },
+  },
+])
+
+/**
+ * Specifies all attributes of particle state
+ * Particle state lives in two places. The part common to all particles of a group lives in group law.
+ * Then, each particle of a group can add custom part of the state
+ */
+export interface stateSpec {
+  /**
+   * defines state shape, specified by references to type particles
+   */
   propTypes: {
-    type: vParticle({ groupName: 'type' }),
-    states: Dict({
-      type: vDiscreteState,
-    }),
+    [propName: string]: particle
+  }
+  /**
+   * reactive functions constraining state prop values.
+   * see [[stateConstraint]]
+   */
+  constraints?: {
+    [name: string]: stateConstraint
+  }
+  /**
+   * all possible actions that can modify the state shape
+   * State can be modified only thru actions
+   * see [[stateAction]]
+   */
+  actions?: {
+    [name: string]: stateActionSpec
+  }
+  /**
+   * state values visible from outside of a particle
+   * This is particle API. State shape is not visible directly
+   * see [[stateValueAssertion]]
+   */
+  stateValues?: {
+    [name: string]: stateValueAssertion
+  }
+}
+
+/**
+ * @ignore
+ */
+const vUnflavoredStateSpec = Shape({
+  propTypes: {
+    propTypes: Dict({ type: vParticle({ groupName: 'type' }) }),
+    constraints: Dict({ type: functionType }).defaultsTo({}),
+    actions: Dict({ type: vStateActionSpec }).defaultsTo({}),
+    stateValues: Dict({ type: vStateValueAssertion }).defaultsTo({}),
+  },
+})
+
+/**
+ * State spec type factory
+ * group state spec is the flavor prop
+ * This type is used in composition types, as part of group law.
+ * State spec asserts the additional state of the particle does not name clash with group state spec.
+ * Create method of the type merges group state with custom particle state
+ */
+export const vStateSpec = createVTypeFactory<stateSpec, stateSpec>({
+  flavorName: 'state',
+  assert: ({ props: commonState }) => (particleStateSpec: stateSpec) => {
+    const uniquePropNames = (particleStateSpecValue: object) => {
+      const unique = (stateSpecPropName: string) => {
+        mapShape((particleStateSpecValue as stateSpec)[stateSpecPropName] || {}, (propValue, propName) =>
+          assert(
+            !(commonState[stateSpecPropName] || {}).hasOwnProperty(propName),
+            `${propName} of ${stateSpecPropName} not unique`
+          )
+        )
+      }
+
+      mapShape(commonState, (prop, propName) => unique(propName))
+    }
+
+    vUnflavoredStateSpec
+      .refined(uniquePropNames)
+      .assert(particleStateSpec, `bad particle state spec ${particleStateSpec}`)
+  },
+  create: ({ props: commonState }) => (particleState: stateSpec) => {
+    const normalizedCommonState = vUnflavoredStateSpec.create(commonState)
+    const normalizedParticleState = vUnflavoredStateSpec.create(particleState)
+
+    return vUnflavoredStateSpec.create(
+      mapShape(normalizedCommonState, (commonProp, propName) => ({
+        ...commonProp,
+        ...normalizedParticleState[propName],
+      }))
+    ) as stateSpec
   },
 })

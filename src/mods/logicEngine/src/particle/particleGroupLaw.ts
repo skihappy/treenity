@@ -1,5 +1,6 @@
-import { particle } from './particle.types'
+import { particle, particleState, vParticle, vParticleState } from './particle.types'
 import { particleClass } from './particle'
+import { Dict, functionType, Shape } from '../types'
 
 export interface particleGroupLaw {
   compositionType: particle
@@ -12,13 +13,29 @@ export interface particleGroupLaw {
       transform: (any) => any
     }
   }
-  state: {
-    type: particle
-    states: {
-      [stateName: string]: object | ((self: particleClass) => object)
-    }
-  }
+  state: particleState
   gauges: {
     [gaugeName: string]: (self: particleClass) => (gaugeValue: any) => any
   }
 }
+
+export const vParticleGroupLaw = Shape({
+  propTypes: {
+    compositionType: vParticle({ groupName: 'type' }),
+    groupTransforms: Dict({
+      type: functionType,
+    }).defaultsTo({}),
+    partnerTransforms: Dict({
+      type: Shape({
+        propTypes: {
+          type: vParticle({ groupName: 'type' }),
+          transform: functionType,
+        },
+      }),
+    }),
+    state: vParticleState,
+    gauges: Dict({
+      type: functionType,
+    }),
+  },
+})

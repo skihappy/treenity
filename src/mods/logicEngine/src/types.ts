@@ -500,7 +500,7 @@ export const stringType = vTypeof<string>('string')
  * type asserting any function
  * @category vType
  */
-export const functionType = vTypeof<() => any>('function')
+export const functionType = vTypeof('function')
 /**
  * type asserting number
  * @category vType
